@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.data/
+.env
+*.log
+.DS_Store
+
+# Keep local environment files out of Git; examples are safe to commit.
+.env.*
+!.env.example
+!.env.*.example

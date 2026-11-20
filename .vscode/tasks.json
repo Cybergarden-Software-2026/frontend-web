@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "underCtrl: демо сайта",
+      "type": "shell",
+      "command": "./scripts/run.sh demo",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "underCtrl: сборка",
+      "type": "shell",
+      "command": "./scripts/run.sh build",
+      "problemMatcher": []
+    },
+    {
+      "label": "underCtrl: тесты",
+      "type": "shell",
+      "command": "./scripts/run.sh test",
+      "problemMatcher": []
+    },
+    {
+      "label": "underCtrl: фронтенд для API",
+      "type": "shell",
+      "command": "./scripts/run.sh dev",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

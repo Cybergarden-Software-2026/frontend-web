@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ctrl Ops — палитра МТС и UI-кит</title>
+  <meta name="description" content="Лиловая палитра Ctrl Ops по референсу МТС True Tech, кнопки, поля, карточки и состояния прототипа.">
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/reference.css">
+  <script src="assets/ui.js" defer></script>
+  <script src="assets/kit.js" defer></script>
+</head>
+<body class="reference-page">
+  <a class="skip-link" href="#content">К содержанию</a>
+  <header class="reference-header">
+    <div class="reference-width">
+      <a class="brand" href="index.html" aria-label="Ctrl Ops, инциденты"><img src="assets/mark.svg" width="38" height="38" alt=""><span>Ctrl<span class="brand-accent">Ops</span><small>Координация инцидентов</small></span></a>
+      <nav aria-label="Материалы кейса">
+        <a href="index.html">Дашборд</a><a href="mobile.html">Мобильная версия</a><a href="requirements.html">Функционал</a><a href="ui-kit.html" aria-current="page">UI-кит</a>
+      </nav>
+    </div>
+  </header>
+  <main id="content" class="reference-width reference-main">
+    <header class="reference-hero">
+      <p class="reference-kicker">Ctrl Ops · дизайн-система</p>
+      <h1>Палитры и UI-кит</h1>
+      <p>Лиловые поверхности и ледяной голубой сочетаются с фирменным красным <strong>#FE0032</strong> в знаке, графике и кнопке «Симуляция». Критичность обозначает тёмно-красный <strong>#A61C43</strong>.</p>
+      <span data-hero-emblem aria-hidden="true"></span>
+    </header>
+    <section class="reference-section" aria-labelledby="palette-title">
+      <header><h2 id="palette-title">Палитры</h2><p>В дашборде используется мягкая лиловая схема. Переключите тон фона, чтобы сравнить компоненты. Цвета статусов одинаковы в обеих палитрах.</p></header>
+      <div class="palette-controls" role="group" aria-label="Выбор палитры">
+        <button class="button secondary" type="button" data-palette="lilac" aria-pressed="true">Мягкая лиловая</button>
+        <button class="button secondary" type="button" data-palette="ice" aria-pressed="false">Ледяная</button>
+      </div>
+      <div class="specimen" id="specimen" data-theme="lilac">
+        <div class="swatches" id="swatches" aria-label="Цветовые токены"></div>
+        <div class="kit-grid">
+          <div>
+            <section class="kit-block surface" aria-labelledby="buttons-title">
+              <h3 id="buttons-title">Кнопки</h3>
+              <div class="kit-inline">
+                <button class="button brand-button" type="button" data-feedback="Открытие симуляции"><span class="brand-action-mark" data-icon="flask"></span>Симуляция</button>
+                <button class="button primary" type="button" data-feedback="Основное действие подтверждено">Назначить</button>
+                <button class="button secondary" type="button" data-feedback="Открытие фильтров" aria-label="Фильтры"><span data-icon="filter"></span>Фильтры</button>
+                <button class="text-button" type="button" data-feedback="Переход к списку событий">Все события</button>
+                <button class="icon-button" type="button" aria-label="Уведомления" title="Уведомления" data-feedback="Открытие уведомлений"><span data-icon="bell"></span></button>
+                <button class="button primary" type="button" disabled>Недоступно</button>
+              </div>
+              <p class="kit-note" id="kit-feedback" role="status">Нажмите кнопку или используйте Tab для просмотра фокуса.</p>
+              <details><summary>HTML кнопки</summary><pre><code>&lt;button class="button primary" type="button"&gt;
+  Назначить
+&lt;/button&gt;</code></pre></details>
+            </section>
+            <section class="kit-block surface" aria-labelledby="fields-title">
+              <h3 id="fields-title">Поля</h3>
+              <label class="search-field"><span data-icon="search"></span><span class="sr-only">Поиск инцидента</span><input type="search" placeholder="Номер, сервис или команда"></label>
+              <label class="field"><span>Команда</span><select><option>Все команды</option><option>Платежи</option><option>Сеть</option><option>Платформа</option></select></label>
+              <label class="field"><span>Комментарий</span><textarea rows="2" placeholder="Что восстановили или проверили?"></textarea></label>
+              <label class="field"><span>Номер инцидента</span><input type="text" value="1048" aria-invalid="true" aria-describedby="format-error"><small id="format-error" class="field-error">Введите номер в формате INC-1048.</small></label>
+              <label class="field"><span>Источник</span><input type="text" value="Мониторинг" disabled></label>
+            </section>
+            <section class="kit-block surface" aria-labelledby="statuses-title">
+              <h3 id="statuses-title">Приоритет, статус и SLA</h3>
+              <h4>Приоритет</h4>
+              <div class="kit-inline"><span class="priority priority-1" title="Критический">P1</span><span class="priority priority-2" title="Высокий">P2</span><span class="priority priority-3" title="Средний">P3</span><span class="priority priority-4" title="Низкий">P4</span></div>
+              <h4>Статус</h4>
+              <div class="kit-inline"><span class="status status-new"><i></i>Новый</span><span class="status status-work"><i></i>В работе</span><span class="status status-monitoring"><i></i>Наблюдение</span><span class="status status-done"><i></i>Решён</span></div>
+              <h4>Срок восстановления</h4>
+              <div class="kit-inline">
+                <span class="sla sla-normal"><strong>01:15:24</strong><small>Осталось</small></span>
+                <span class="sla sla-soon"><strong>00:12:48</strong><small>Скоро истечёт</small></span>
+                <span class="sla sla-late"><strong>−00:08:18</strong><small>Просрочен</small></span>
+                <span class="sla sla-closed"><strong><span data-icon="check"></span>В срок</strong></span>
+                <span class="sla sla-closed-late"><strong><span data-icon="alert"></span>С опозданием</strong></span>
+              </div>
+            </section>
+          </div>
+
+          <div>
+            <section class="kit-block surface" aria-labelledby="cards-title">
+              <h3 id="cards-title">Карточки и лента</h3>
+              <div class="kit-metrics">
+                <div class="metric surface"><span class="metric-top"><span class="metric-icon tone-blue" data-icon="inbox"></span><span class="metric-label">Активные</span></span><strong class="metric-count">10</strong><small>Открытые инциденты</small></div>
+                <div class="metric surface"><span class="metric-top"><span class="metric-icon tone-danger" data-icon="alert"></span><span class="metric-label">Критические</span></span><strong class="metric-count">3</strong><small>Приоритет P1</small></div>
+              </div>
+              <article class="kit-incident">
+                <div class="incident-card-meta"><span class="incident-id">INC-1048</span><span class="priority priority-1">P1</span><span class="status status-work"><i></i>В работе</span></div>
+                <h4>Ошибки при оплате картой</h4><p>SmartPay · Москва</p>
+                <div class="incident-card-footer"><span class="team-tag"><span class="team-avatar tone-purple">ПЛ</span>Платежи</span><span class="sla sla-soon"><strong>00:12:48</strong><small>Скоро истечёт</small></span></div>
+              </article>
+              <div class="event-row">
+                <span class="event-icon tone-danger" data-icon="alert"></span><span class="event-body"><strong>Новый критический</strong><span>INC-1048 · SmartPay</span></span><span class="event-time"><time>14:24</time><i aria-label="Новое"></i></span>
+              </div>
+              <article class="ai-panel">
+                <div class="ai-top"><span class="ai-symbol" data-icon="spark"></span><h4 style="color:inherit;margin:0">Подсказка ИИ</h4><span class="ai-demo">Демо</span></div>
+                <span class="ai-risk"><i></i> Высокий риск</span><h3>Ошибки при оплате картой</h3>
+                <p>Ошибки растут, а до срока SLA осталось мало времени.</p>
+              </article>
+              <div class="empty-state kit-empty"><span class="kit-note" data-icon="search"></span><strong>Инциденты не найдены</strong><p>Измените запрос или сбросьте фильтры.</p></div>
+            </section>
+            <section class="kit-block surface" aria-labelledby="icons-title">
+              <h3 id="icons-title">Иконки</h3>
+              <div class="icon-samples">
+                <div><span data-icon="grid"></span><span>Очередь</span></div><div><span data-icon="pulse"></span><span>События</span></div><div><span data-icon="people"></span><span>Команды</span></div><div><span data-icon="spark"></span><span>Разбор ИИ</span></div>
+              </div>
+              <p>Контурные SVG в сетке 24 × 24. У кнопки с одной иконкой есть доступное текстовое имя.</p>
+              <a href="assets/mark.svg" class="button secondary" download>Скачать знак Ctrl Ops</a>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="reference-section" aria-labelledby="foundations-title">
+      <header><h2 id="foundations-title">Правила применения</h2></header>
+      <div class="feature-grid">
+        <article class="feature-card surface"><h3>Типографика и геометрия</h3><p>Системный гротеск с поддержкой кириллицы. Номера и таймеры используют моноширинное начертание. Текст основных действий — 14 px, основной текст спецификации — 15–16 px, вторичные подписи — 12–13 px. Скругления 23 px у панелей, 13 px у полей и кнопок, 6 px у меток приоритета.</p></article>
+        <article class="feature-card surface"><h3>Токены и вёрстка</h3><p>Цвета, радиусы и шрифты заданы CSS-переменными. На ширине до 620 px таблица становится карточками. У кнопок предусмотрены наведение, видимый фокус и недоступное состояние. Поля показывают ошибки текстом и контуром.</p></article>
+      </div>
+    </section>
+  </main>
+  <footer class="reference-footer"><div class="reference-width"><span>Ctrl Ops · материалы проекта</span><a href="index.html">К дашборду</a></div></footer>
+</body>
+</html>

@@ -1,0 +1,135 @@
+/* Header from message-2: translucent keycaps, floating incident cards, centred alarm. */
+.wave-hero{height:175px;border:1px solid var(--line);overflow:visible;background:linear-gradient(163deg,#e1edf9 0%,#f0e8fc 58%,#e3d5f8 100%)}
+.wave-hero.has-routing-alerts{border-color:var(--brand-red)}
+.hero-keycaps{position:absolute;inset:0;overflow:hidden;border-radius:22px;pointer-events:none;z-index:0}
+.hero-keycap{position:absolute;left:var(--key-x);top:var(--key-y);display:grid;place-items:center;width:53px;height:46px;padding:6px;border:1px solid #ffffffab;border-radius:13px;background:linear-gradient(140deg,#ffffff40,#ffffff10);box-shadow:inset 2px 2px 0 #ffffff5c,inset -3px -5px 0 #ffffff1a,0 5px 10px #8c79b90a;transform:rotate(var(--key-rotation));font-family:"MTS Wide",var(--font);font-size:15px;color:#ffffffb3;text-shadow:0 1px #fff5}
+.hero-keycap.keycap-1{width:69px;height:56px;border-radius:15px;font-size:17px}.hero-keycap.keycap-2{width:39px;height:36px;border-radius:10px;font-size:13px}
+.wave-viewport{position:absolute;left:44px;right:44px;top:26px;bottom:6px;z-index:1;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain}
+.wave-viewport::-webkit-scrollbar{display:none}
+.wave-track{display:flex;gap:10px;align-items:flex-start;width:max-content;min-width:100%;height:142px}
+.wave-card-group{display:flex;gap:10px;flex:none;height:142px}
+.wave-card-slot{flex:0 0 200px;width:200px;padding-top:var(--wave-y);height:142px}
+.wave-alert{width:200px;height:70px;min-height:70px;padding:7px 8px;gap:3px;border-radius:16px;animation:card-wave 24s ease-in-out infinite;animation-delay:var(--wave-phase);will-change:transform;justify-content:center;box-shadow:0 2px 6px #5b419c05}
+.wave-alert-critical{background:var(--danger-tint);border-color:var(--brand-red)}
+.wave-alert-warning{background:#fffffff2;border-color:var(--primary-hover)}
+.wave-alert .header-alert-title{font-size:14px;line-height:17px;font-weight:700;letter-spacing:-.1px}
+.wave-alert>.sla{display:block;min-width:0;line-height:16px}.wave-alert>.sla strong{font:700 14px/16px var(--font);letter-spacing:0}.wave-alert>.sla small{display:none}
+.wave-alert>small{font-size:10px;line-height:12px;font-weight:650;color:#808080}
+.routing-wait-time{font-size:14px;line-height:17px;color:var(--warning);font-variant-numeric:tabular-nums}
+@keyframes card-wave{0%,100%{transform:translateY(-6px)}50%{transform:translateY(6px)}}
+.wave-viewport:hover .wave-alert,.wave-viewport:focus-within .wave-alert{animation-play-state:paused}
+.wave-arrow{position:absolute;top:69px;z-index:3;width:31px;height:40px;display:grid;place-items:center;background:none;border:0;padding:0;color:var(--brand-red);border-radius:8px}
+.wave-arrow:hover{background:#ffffff70}.wave-arrow-left{left:3px}.wave-arrow-right{right:3px}
+.header-signal.wave-signal{left:50%;right:auto;top:0;transform:translateX(-50%);height:34px;z-index:4;display:grid;place-items:center}
+.wave-bell-button{display:grid;place-items:center;width:40px;height:36px;background:#f1e9fcf5;border:0;border-radius:0 0 16px 16px;color:var(--primary);padding:0}
+.wave-bell-icon{display:inline-flex;transform-origin:50% 3px}
+.wave-bell-ringing{animation:central-bell-appear 3.2s ease-out both}
+.wave-bell-ringing .wave-bell-icon{animation:bell-swing .55s ease-in-out .15s 5}
+@keyframes central-bell-appear{0%{opacity:0;transform:translateY(-22px) scale(.5)}12%,100%{opacity:1;transform:translateY(0) scale(1)}}
+.wave-empty{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;flex-direction:column;height:100%;padding:20px 40px;gap:10px;text-align:center}
+.wave-empty-brand{font-size:10px;color:var(--primary);display:flex;align-items:center;gap:7px;font-weight:700}.wave-empty-brand i{height:11px;width:1px;background:var(--line-active)}
+.wave-empty>strong{font-family:"MTS Wide",var(--font);font-size:27px;line-height:1.2;font-weight:500;letter-spacing:-.5px}.wave-empty>span:last-child{font-size:12px;color:var(--muted);line-height:1.6;max-width:620px}
+.incident-table .incident-arrival td{animation:new-incident-row 6s ease-out both}
+.incident-table .incident-arrival td:first-child .queue-incident-copy{animation:new-incident-copy .65s ease-out both}
+@keyframes new-incident-row{0%{background:#e3d5f8;box-shadow:inset 0 2px #c7b7e2,inset 0 -2px #c7b7e2}20%{background:#eee6fb}65%{background:#f5f0fc}100%{background:transparent;box-shadow:none}}
+@keyframes new-incident-copy{from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:850px){.wave-hero{height:175px}.wave-viewport{left:35px;right:35px;top:27px;bottom:5px}.wave-arrow{width:28px}.hero-keycaps{border-radius:22px}.wave-empty>strong{font-size:23px}.wave-empty>span:last-child{font-size:11px}}
+@media(max-width:520px){.wave-hero{height:175px;border-radius:20px}.wave-viewport{left:32px;right:32px}.wave-arrow-left{left:1px}.wave-arrow-right{right:1px}.wave-empty{padding-inline:24px}.wave-empty>strong{font-size:21px}}
+@media(prefers-reduced-motion:reduce){.wave-alert,.wave-bell-ringing,.wave-bell-ringing .wave-bell-icon,.incident-table .incident-arrival td,.incident-table .incident-arrival td:first-child .queue-incident-copy{animation:none;will-change:auto}.incident-table .incident-arrival td{background:#eee6fb}}
+
+.hero-mts-watermark{position:absolute;left:43%;top:7px;width:155px;height:155px;color:#ffffff85;transform:rotate(-8deg);font:700 56px/1 Arial,sans-serif;letter-spacing:-2px}
+@media(max-width:850px){.hero-mts-watermark{left:39%;width:145px;height:145px;top:12px}}
+
+/* Airy, flat pattern matching the supplied export; no eggs or heavy key shadows. */
+.hero-pattern-item{position:absolute;left:var(--pattern-x);top:var(--pattern-y);width:var(--pattern-size);height:var(--pattern-size);display:grid;place-items:center;transform:rotate(var(--pattern-rotation));transform-origin:top left;pointer-events:none}
+.hero-pattern-logo{border:1px solid #ffffffa6;background:#ffffff21;color:#ffffffb8}
+.hero-pattern-logo>svg{width:72%;height:72%;font:700 56px Arial,sans-serif;letter-spacing:-2px}
+.hero-pattern-key{border:1px solid #ffffffa6;border-radius:9px;background:#ffffff20;box-shadow:none;color:#ffffffc0}
+.hero-pattern-key>span{font-family:"MTS Wide",var(--font);font-size:calc(var(--pattern-size)*.24);font-weight:500;text-shadow:none}
+/* Reserve breathing room for the complete up/down movement of every card. */
+.wave-viewport{top:10px;bottom:10px}
+.wave-track,.wave-card-group{height:153px}
+.wave-card-slot{padding-top:calc(var(--wave-y) + 14px);height:153px}
+.wave-bell-button{background:transparent;color:var(--brand-red);border-radius:0}
+.wave-bell-ringing{animation:central-red-bell 3.2s ease-in-out both}
+@keyframes central-red-bell{0%{opacity:0;transform:translateY(-22px) scale(.5)}12%,78%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-20px) scale(.5)}}
+@media(max-width:850px){.wave-viewport{top:10px;bottom:10px}}
+@media(prefers-reduced-motion:reduce){.wave-bell-ringing{animation:red-bell-reduced 3.2s linear both}}
+@keyframes red-bell-reduced{0%,85%{opacity:1}100%{opacity:0}}
+
+/* Cards leave at the outer red border, never at an inset beside the arrows. */
+.wave-viewport{left:0;right:0;padding-inline:44px;border-radius:22px}
+.wave-arrow:hover{background:transparent}
+@media(max-width:850px){.wave-viewport{left:0;right:0;padding-inline:35px}}
+@media(max-width:520px){.wave-viewport{left:0;right:0;padding-inline:32px;border-radius:19px}}
+
+/* Large red event bell; the pulse unmounts after playback. */
+.wave-bell-button{width:64px;height:62px}
+.wave-bell-icon>svg{width:48px;height:48px}
+.header-signal.wave-signal{height:62px;top:-3px}
+
+/* Continuous horizontal flow, including a single incident. Fractional motion is
+   accumulated in the header to avoid integer scroll rounding at high FPS. */
+.wave-alert{animation:card-wave 24s ease-in-out infinite;animation-delay:var(--wave-phase);will-change:transform}
+.wave-card-slot{padding-top:calc(var(--wave-y) + 14px)}
+.wave-empty{gap:5px;padding-left:130px}
+.calm-orbit{position:absolute;left:calc(50% - 245px);top:36px;width:100px;height:100px;display:grid;place-items:center;color:var(--brand-red)}
+.calm-ring{position:absolute;border:1px solid #ffffffd9;border-radius:50%;inset:0;animation:calm-breathe 5s ease-in-out infinite;box-shadow:0 0 22px #ffffff40}
+.calm-ring-two{inset:12px;animation-delay:-2.5s;border-color:#ffffffa6}
+.calm-core{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;background:#ffffffc2;box-shadow:0 6px 20px #7252ac12;z-index:1}
+.calm-orbit>svg{position:absolute;width:135px;height:55px;bottom:-2px;left:-17px;overflow:visible}
+.calm-orbit path{stroke:var(--brand-red);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:165;animation:calm-trace 5s ease-in-out infinite}
+@keyframes calm-breathe{0%,100%{transform:scale(.9);opacity:.45}50%{transform:scale(1.08);opacity:1}}
+@keyframes calm-trace{0%{stroke-dashoffset:165;opacity:0}15%{opacity:.65}65%{stroke-dashoffset:0;opacity:.65}100%{stroke-dashoffset:-165;opacity:0}}
+.header-preview-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--primary);margin-bottom:10px}
+.header-test-controls{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--line)}
+.header-test-controls h3{margin:0 0 8px}.header-test-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+@media(max-width:850px){.wave-empty{padding-left:100px}.calm-orbit{left:14px;width:75px;height:75px;top:48px}.calm-orbit>svg{width:100px;left:-12px}.wave-empty>strong{font-size:22px}}
+@media(max-width:520px){.wave-empty{padding-left:80px;padding-right:12px}.calm-orbit{left:10px;width:58px;height:58px;top:55px}.calm-core{width:32px;height:32px}.calm-orbit>svg{width:76px;left:-9px;bottom:-13px}.wave-empty>strong{font-size:18px}.wave-empty>span:last-child{font-size:10px}.header-preview-notice{align-items:flex-start;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.calm-ring,.calm-orbit path{animation:none}.calm-orbit path{stroke-dasharray:none}}
+
+@media(prefers-reduced-motion:reduce){.wave-alert{animation:none;will-change:auto}}
+
+/* Original gentle wave, slowed to a 24-second cycle. */
+.wave-card-slot{padding-top:calc(var(--wave-y) + 14px)}
+
+/* Active state shares the breathing rings and signal trace of the calm state. */
+.spotlight-hero{--signal-color:var(--brand-red);border-color:#f1a1b4;box-shadow:0 7px 28px #7656a308}
+.spotlight-hero.spotlight-waiting{--signal-color:#99651c;border-color:#d8ba86}
+.spotlight-summary{position:absolute;inset:0 auto 0 20px;width:322px;z-index:1;display:flex;align-items:center;gap:18px}
+.spotlight-orbit.calm-orbit{position:relative;inset:auto;flex:0 0 80px;width:80px;height:80px;color:var(--signal-color)}
+.spotlight-orbit .calm-core{background:#ffffffd6;box-shadow:0 4px 24px #c32c5310}
+.spotlight-orbit>svg{width:108px;height:45px;left:-14px;bottom:-12px}
+.spotlight-orbit path{stroke:var(--signal-color);animation-duration:6s}
+.spotlight-summary-copy{display:flex;flex-direction:column;gap:7px;min-width:0}
+.spotlight-eyebrow{font-size:9px;font-weight:700;color:var(--primary);letter-spacing:.7px}
+.spotlight-summary-copy>strong{font-family:"MTS Wide",var(--font);font-size:19px;line-height:1.3;letter-spacing:-.5px;font-weight:500;max-width:205px}
+.spotlight-summary-copy>span:not(.spotlight-eyebrow){font-size:11px;color:var(--muted)}
+.spotlight-counts{display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:3px;font-size:10px;font-weight:650}
+.spotlight-counts>span{display:flex;align-items:center;gap:5px}.spotlight-counts i{width:5px;height:5px;border-radius:50%;background:currentColor}
+.spotlight-count-critical{color:var(--danger)}.spotlight-count-waiting{color:var(--warning)}
+.spotlight-deck{position:absolute;left:360px;right:22px;top:29px;bottom:12px;z-index:1;display:flex;flex-direction:column;justify-content:center;gap:7px}
+.spotlight-cards{display:flex;align-items:stretch;gap:12px;min-width:0}
+.spotlight-card-slot{flex:1 1 0;min-width:0;max-width:300px;animation:spotlight-arrive .85s cubic-bezier(.16,1,.3,1) both;animation-delay:var(--card-delay)}
+.spotlight-card{width:100%;height:103px;min-height:103px;padding:12px 13px;border-radius:17px;gap:8px;justify-content:flex-start;text-align:left;background:#ffffffd9;box-shadow:0 5px 18px #5c397a08;transition:box-shadow .2s,background .2s,transform .2s;overflow:hidden}
+.spotlight-card-critical{border-color:#edafbf;background:linear-gradient(135deg,#fff8faee,#fff0f5dd)}
+.spotlight-card-warning{border-color:#d8c5a3;background:linear-gradient(135deg,#fffdf7f2,#fff8e9e6)}
+.spotlight-card:hover{background:#fff;box-shadow:0 8px 22px #61427b14;transform:translateY(-2px)}
+.spotlight-card-label{display:flex;align-items:center;gap:5px;font-size:9px;line-height:12px;color:var(--warning);font-weight:650}
+.spotlight-card-critical .spotlight-card-label{color:var(--danger)}
+.spotlight-card .header-alert-title{font-size:14px;line-height:18px;font-weight:700;max-width:100%;display:block;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+.spotlight-card-footer{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;margin-top:auto;min-width:0}
+.spotlight-card-footer .sla{display:block;min-width:0}.spotlight-card-footer .sla strong{font:700 13px/16px var(--font)}.spotlight-card-footer .sla small{display:none}
+.spotlight-card-footer .routing-wait-time{font-size:12px;line-height:16px}.spotlight-open{font-size:9px;color:var(--muted);opacity:0;transition:opacity .2s}.spotlight-card:hover .spotlight-open,.spotlight-card:focus-visible .spotlight-open{opacity:1}
+.spotlight-pagination{display:flex;align-items:center;gap:12px;min-height:20px;font-size:10px;color:var(--muted)}
+.spotlight-navigation{display:flex;gap:2px;margin-left:auto}.spotlight-navigation .icon-button{width:23px;height:21px;min-height:21px;color:var(--primary);background:#ffffff70;border-radius:7px}
+.spotlight-hero .wave-signal{top:-8px}.spotlight-hero .wave-bell-button{filter:drop-shadow(0 2px 6px #fff)}
+@keyframes spotlight-arrive{from{opacity:0;transform:translateX(18px) scale(.97);filter:blur(3px)}to{opacity:1;transform:translateX(0) scale(1);filter:blur(0)}}
+@media(max-width:1150px){.spotlight-summary{width:276px;gap:12px;left:16px}.spotlight-orbit.calm-orbit{flex-basis:66px;width:66px;height:66px}.spotlight-summary-copy>strong{font-size:17px}.spotlight-deck{left:304px;right:16px}.spotlight-eyebrow{font-size:8px}.spotlight-summary-copy>span:not(.spotlight-eyebrow){font-size:10px}}
+@media(max-width:650px){.spotlight-hero{height:296px!important}.spotlight-summary{inset:16px 20px auto;width:auto;height:91px;gap:17px}.spotlight-summary-copy>strong{max-width:none;font-size:20px}.spotlight-deck{left:20px;right:20px;top:127px;bottom:17px}.spotlight-card-slot{max-width:none}.spotlight-card{height:108px;min-height:108px}.spotlight-card .header-alert-title{font-size:15px}.spotlight-counts{flex-wrap:nowrap}.spotlight-summary-copy>span:not(.spotlight-eyebrow){font-size:11px}.spotlight-hero .wave-signal{left:auto;right:8px;top:5px;transform:none}.spotlight-hero .wave-bell-button{width:45px}}
+@media(prefers-reduced-motion:reduce){.spotlight-card-slot{animation:none}.spotlight-card:hover{transform:none}}
+
+/* An active incident quickens the same pulse used by the calm state. */
+.spotlight-orbit .calm-ring{animation-duration:2.5s}
+.spotlight-orbit .calm-ring-two{animation-delay:-1.25s}
+.spotlight-orbit path{animation-duration:2.8s}

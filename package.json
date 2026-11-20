@@ -1,0 +1,31 @@
+{
+  "name": "underctrl-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/preview.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "tsc --noEmit",
+    "demo": "node scripts/dev.mjs --demo",
+    "api:demo": "node tools/demo-api/index.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "@vitejs/plugin-react": "^5.1.1"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

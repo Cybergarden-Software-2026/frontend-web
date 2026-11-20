@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {defaultFilters,selectQueue,restoreFilters} from '../src/domain/workspace.ts';
+const rows=JSON.parse(readFileSync(new URL('../data/seed.json',import.meta.url),'utf8'));
+test('default working queue excludes resolved and closed but retains Research',()=>{const result=selectQueue(rows,defaultFilters,new Set(),Date.now());assert.equal(result.length,29);assert.equal(result.filter(i=>i.stateEnum==='Research').length,5);assert.ok(!result.some(i=>['Resolved','Closed'].includes(i.stateEnum)));});
+test('favorites are a separate view and do not duplicate overlapping groups',()=>{const favorite=rows[0];const result=selectQueue(rows,{...defaultFilters,view:'favorites'},new Set([favorite.sysId]),Date.now());assert.deepEqual(result.map(i=>i.sysId),[favorite.sysId]);});
+test('focus sorting puts a critical coordinator incident before a lower-priority overdue incident',()=>{const now=Date.now();const critical={...rows[0],sysId:'critical',id:'critical',priorityId:4,deadline:new Date(now+1_000_000).toISOString()};const overdue={...rows[1],sysId:'late',id:'late',priorityId:3,deadline:new Date(now-1_000).toISOString()};assert.equal(selectQueue([overdue,critical],defaultFilters,new Set(),now)[0].sysId,'critical');});
+test('product and team filters compose with free text search',()=>{const value=rows[0];const result=selectQueue(rows,{...defaultFilters,view:'all',product:value.productName,team:value.assignedGroupName,search:value.id},new Set(),Date.now());assert.equal(result.length,1);assert.equal(result[0].sysId,value.sysId);});
+test('saved filters restore validated values and ignore corrupt sort/view values',()=>{const value=restoreFilters({view:'invalid',group:'invalid',sort:'invalid',unassigned:'true',search:'pay',team:42});assert.equal(value.view,'attention');assert.equal(value.group,'all');assert.equal(value.sort,'focus');assert.equal(value.unassigned,false);assert.equal(value.search,'pay');assert.equal(value.team,'');});
