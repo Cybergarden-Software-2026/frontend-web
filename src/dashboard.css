@@ -14,6 +14,9 @@ html,body,#root{height:100%;overflow:hidden}
 .sidebar-profile{margin-top:8px;padding:8px;gap:9px;background:var(--surface-alt);border-radius:13px}
 .sidebar-profile strong{font-size:13.6px}.sidebar-profile small{font-size:12px}
 .sidebar-profile .avatar{height:35px;width:35px;font-size:12px}
+.sidebar-profile .avatar { flex-shrink: 0; }
+.sidebar-profile .profile-identity { min-width: 0; }
+.profile-identity strong, .profile-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-tools{display:flex;align-items:center;gap:3px;padding-inline:5px}
 .sidebar-tools>.text-button{font-size:11px;margin-right:auto;color:var(--soft);gap:5px;display:flex;align-items:center}
 .sidebar-tools .icon-button{width:27px;height:27px}

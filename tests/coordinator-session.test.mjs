@@ -11,7 +11,7 @@ test('session uses the HTTP-only cookie through status, sign-in, and 204 sign-ou
  });
 
  assert.deepEqual(await api.coordinatorSession(), { required: true, authenticated: false });
- assert.deepEqual(await api.signInCoordinator('fixture-key', false), { required: true, authenticated: true });
+ assert.deepEqual(await api.signInCoordinator({ key: 'fixture-key', remember: false }), { required: true, authenticated: true });
  assert.equal(await api.signOutCoordinator(), undefined);
 
  assert.equal(calls.length, 3);
@@ -32,7 +32,7 @@ test('only 401 from a protected request triggers a return to login', async t => 
  t.after(onApiUnauthorized(() => { unauthorized++; }));
  t.mock.method(globalThis, 'fetch', async () => Response.json({ error: 'Unauthorized' }, { status: 401 }));
 
- await assert.rejects(api.signInCoordinator('invalid-key', false), error => error instanceof ApiError && error.status === 401);
+ await assert.rejects(api.signInCoordinator({ key: 'invalid-key', remember: false }), error => error instanceof ApiError && error.status === 401);
  assert.equal(unauthorized, 0);
  await assert.rejects(api.snapshot(), error => error instanceof ApiError && error.status === 401);
  assert.equal(unauthorized, 1);
@@ -47,7 +47,7 @@ test('late unauthorized response from a prior session cannot sign out the new se
   : stale.promise);
 
  const pending = api.teams();
- await api.signInCoordinator('new-key', true);
+ await api.signInCoordinator({ key: 'new-key', remember: true });
  stale.resolve(Response.json({ error: 'Unauthorized' }, { status: 401 }));
  await assert.rejects(pending, error => error instanceof ApiError && error.status === 401);
  assert.equal(unauthorized, 0);
@@ -56,4 +56,40 @@ test('late unauthorized response from a prior session cannot sign out the new se
 test('an invalid status response fails closed', async t => {
  t.mock.method(globalThis, 'fetch', async () => Response.json({ authenticated: true }));
  await assert.rejects(api.coordinatorSession(), /некорректное состояние входа/);
+});
+
+test('personal accounts can sign in with either set of credentials and receive the server identity', async t => {
+ const coordinator = { login: 'fixture-user', displayName: 'Тестовый координатор' };
+ const requests = [];
+ t.mock.method(globalThis, 'fetch', async (url, init) => {
+  assert.equal(url, '/api/v1/auth/coordinator/session');
+  assert.equal(init.credentials, 'include');
+  assert.equal(init.headers.has('Authorization'), false);
+  if (init.body) requests.push(JSON.parse(init.body));
+  return Response.json(init.method === 'POST'
+   ? { required: true, authenticated: true, mode: 'accounts', coordinator }
+   : { required: true, authenticated: false, mode: 'accounts' });
+ });
+
+ assert.deepEqual(await api.coordinatorSession(), { required: true, authenticated: false, mode: 'accounts' });
+ const login = { login: 'fixture-user', password: ' fixture-password ', remember: true };
+ const key = { key: 'fixture-individual-key', remember: false };
+ for (const credentials of [login, key]) {
+  const session = await api.signInCoordinator(credentials);
+  assert.deepEqual(session.coordinator, coordinator);
+  assert.equal(session.mode, 'accounts');
+ }
+ assert.deepEqual(requests, [login, key]);
+});
+
+test('an authenticated account response requires a valid coordinator identity', async t => {
+ const responses = [
+  { required: true, authenticated: true, mode: 'accounts' },
+  { required: true, authenticated: true, mode: 'accounts', coordinator: { login: 'fake' } },
+  { required: true, authenticated: false, mode: 'invalid-mode' },
+ ];
+ t.mock.method(globalThis, 'fetch', async () => Response.json(responses.shift()));
+ for (let i = 0; i < 3; i++) {
+  await assert.rejects(api.coordinatorSession(), /некорректное состояние входа/);
+ }
 });

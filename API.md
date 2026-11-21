@@ -9,9 +9,11 @@ Status reflects the committed implementation in the owning repository. Productio
 | Capability | Owning repository | Status |
 |---|---|---|
 | `GET/POST/DELETE /api/v1/auth/coordinator/session` and protected dashboard routes | `backend` and `frontend-web` | Implemented (enabled by configuration) |
+| Personal coordinator accounts with password and individual key, plus assignment attribution | `backend` and `frontend-web` | Implemented (enabled by `COORDINATOR_ACCOUNTS_ENABLED`) |
 | `GET /api/v1/snapshot` and `GET /api/v1/dashboard` | `backend` | Implemented |
 | `GET /api/v1/incidents` with page and cursor pagination, and `GET /api/v1/incidents/{key}?view=web` | `backend` | Implemented |
 | `GET /api/v1/teams` and rules-based `GET /api/v1/incidents/{key}/analysis` | `backend` | Implemented |
+| LLM summary and team suggestion in `GET /api/v1/incidents/{key}/analysis` (`provider: "llm"`, background `ai-worker`, `LLM_ENABLED`) | `backend` | Implemented (verified with a mock model; enabled per deployment) |
 | `POST /api/v1/incidents/{sysId}/assignment` with revision checking | `backend` and `frontend-web` | Implemented |
 | `GET /api/v1/events`, `GET /api/v1/events/stream`, and `GET /api/v1/incidents/{key}/events` | `backend` | Implemented |
 | `GET /api/v1/notifications` and `PUT /api/v1/notifications/{notification_id}/read` | `backend` | Implemented |
@@ -20,8 +22,9 @@ Status reflects the committed implementation in the owning repository. Productio
 | Live shift assignments, coordination KPI and intervals between team assignments via `GET /api/v1/statistics/shift` | `backend` | Implemented |
 | Separate chart for the time between team assignments | `frontend-web` | Implemented |
 | Shared mass-problem membership and exclusions via `GET/PATCH /api/v1/problems/clusters` | `backend` | Implemented |
+| LLM review of automatic mass-problem groups (title and reason in `GET/PATCH /api/v1/problems/clusters`) | `backend` | Implemented (verified with a mock model; enabled per deployment) |
 | Shift PDF/Excel export and sequential group assignment | `frontend-web` | Implemented |
-| Atomic bulk team assignment, individual coordinator attribution, and LLM-powered analysis | `backend` | Not implemented |
+| Atomic bulk team assignment and per-coordinator shift statistics | `backend` | Not implemented |
 | Same-origin `/api` proxy and `GET /healthz` | `frontend-web` | Implemented |
 | `POST /api/v1/demo` and `PUT /api/v1/incidents` | `backend` | Implemented (isolated demo only) |
 
@@ -50,19 +53,19 @@ The command examples below use a local instance without authentication. When coo
 
 ### Coordinator access
 
-The Rust API enables coordinator authentication when the administrator configures `COORDINATOR_ACCESS_KEY`. This key is shared with authorized coordinators outside the application. The frontend displays the login form and uses the session returned by the API. There is no user registration.
+With `COORDINATOR_ACCOUNTS_ENABLED=true`, the Rust API requires an active coordinator account. The administrator provisions accounts on the backend. Each account has a login, password and separate key. The frontend shows both sign-in methods. The backend verifies credentials and stores only password verifiers and key digests. There is no public registration endpoint.
 
 | Method on `/api/v1/auth/coordinator/session` | Request and response |
 |---|---|
-| `GET` | Returns `200` with `{ "required": true, "authenticated": false }` if authentication is enabled and the client needs to sign in. `authenticated` is `true` for a valid session. |
-| `POST` | Accepts JSON `{ "key": "<coordinator key>", "remember": false }`. Returns `200` with `required: true` and `authenticated: true` and sets a cookie on success. An invalid key returns `401`. |
+| `GET` | Returns `200` with `required` and `authenticated`. In accounts mode it includes `mode: "accounts"`. An authenticated account response includes `coordinator: { "login": "test-coordinator-1", "displayName": "Тестовый координатор 1" }`. |
+| `POST` | Accepts one of `{ "login": "test-coordinator-1", "password": "<password>", "remember": false }` or `{ "key": "<personal key>", "remember": false }`. Returns the authenticated session status and sets a cookie. Invalid credentials or a disabled account return `401`. |
 | `DELETE` | Invalidates the current session, clears the cookie and returns `204`. |
 
-If the server has no coordinator key, `GET` and `POST` return `200` with `required: false` and `authenticated: false`. Dashboard routes are then open, which allows the frontend and backend to be rolled out before enabling the key. `DELETE` still returns `204`.
+Accounts mode requires a session even when no accounts have been created. It accepts only personal credentials and account sessions. With accounts mode disabled, the legacy `COORDINATOR_ACCESS_KEY` setting can still require shared-key authentication. If neither mode is configured, `GET` and `POST` return `200` with `required: false` and `authenticated: false`, and dashboard routes are open during rollout. `DELETE` returns `204` in each mode.
 
 The API issues a host-only `__Host-underctrl-coordinator` cookie with `Secure`, `HttpOnly`, `SameSite=Strict`, and `Path=/`. The default session expires after 12 hours on the server and uses a browser session cookie. Selecting **Remember this device** issues a cookie and session valid for seven days. The browser sends the cookie on normal same-origin requests, including SSE. For cross-origin requests within the same site, add the HTTPS frontend origin to `CORS_ORIGINS` and send credentials on both `fetch` and `EventSource`.
 
-The API returns `401` for protected routes without a valid session and `403` for writes from a disallowed browser origin. Protection covers dashboard data, the queue, incident details and history, the team directory, analysis, notifications, statistics, SSE, team assignments and group edits. Authenticated data and session responses specify `Cache-Control: no-store`. The server rechecks access before sending each SSE update or heartbeat. Health and API documentation are available without a session.
+The API returns `401` for protected routes without a valid session and `403` for writes from a disallowed browser origin. Protection covers dashboard data, the queue, incident details and history, the team directory, analysis, notifications, statistics, SSE, team assignments and group edits. Authenticated data and session responses specify `Cache-Control: no-store`. The server rechecks access before sending each SSE update or heartbeat, so disabling an account also stops access through its open streams. Health and API documentation are available without a session.
 
 ## 1. Get a snapshot and find incident identifiers
 
@@ -140,14 +143,16 @@ The full response contains `items`, `total`, `page`, `pageSize`, `totalPages`, a
 
 **Directory.** `GET /teams` returns `{"items":[{"name":"Team A","activeCount":3}],"revision":12}`. The directory includes teams with no active assignments. `activeCount` counts currently present incidents assigned to the team, excluding resolved and closed incidents. Copy the exact `name` when assigning a team.
 
-**Analysis.** `GET /incidents/{key}/analysis` accepts the `sysId` or ticket number `id` of an incident that is still present. The response contains `sysId`, `revision`, `generatedAt`, `provider` (currently `rules`), `summary`, `facts` (pairs of `label` and `value`), `attention`, `missing`, and `candidates`. Each candidate has `team`, `evidenceIds`, and `reason`. The algorithm suggests up to three teams based on completed cases that have a completion date and match either the service or the combination of scenario and product. `evidenceIds` contains `INC…` ticket numbers. The candidate array is empty when there is insufficient evidence.
+**Analysis.** `GET /incidents/{key}/analysis` accepts the `sysId` or ticket number `id` of an incident that is still present. The response contains `sysId`, `revision`, `generatedAt`, `provider` (`rules` or `llm`, see below), `summary`, `facts` (pairs of `label` and `value`), `attention`, `missing`, and `candidates`. Each candidate has `team`, `evidenceIds`, and `reason`. The algorithm suggests up to three teams based on completed cases that have a completion date and match either the service or the combination of scenario and product. `evidenceIds` contains `INC…` ticket numbers. The candidate array is empty when there is insufficient evidence.
+
+**LLM analysis.** When the deployment enables `LLM_ENABLED`, a background `ai-worker` asks the local model for a summary of each present incident in advance; the request never waits for the model. If a validated result exists for the incident's current header, descriptions, product, service and scenario (and the configured model and prompt version), the response has `provider: "llm"`, the model's Russian `summary`, and `generatedAt` set to the generation time. `candidates` then contains at most one team: the one the model chose among the rules-based candidates, still present in the rules and the team directory, with `evidenceIds` taken from the rules. Otherwise `candidates` is `[]` and `missing` explains that the coordinator should choose manually. Without such a result, including while the job is queued, after a model error or with the worker stopped, the response is the rules-based analysis above with `provider: "rules"`. A change to team, status or other incidents does not invalidate the summary; editing the description does, immediately. `revision`, `facts` and `attention` are computed by the rules in both cases. An open page does not poll: reopen the analysis to see a summary that became ready later. Assignment remains a separate coordinator action.
 
 ```bash
 curl -fsS "$API/teams" | jq '.items[] | {name, activeCount}'
 curl -fsS "$API/incidents/$SYS_ID/analysis" | jq '{summary, attention, candidates, missing}'
 ```
 
-**Assignment.** `POST /incidents/{sysId}/assignment` requires the incident's `sysId`. The JSON body contains the chosen team name and the snapshot revision the coordinator saw. Send the coordinator session cookie if authentication is enabled.
+**Assignment.** `POST /incidents/{sysId}/assignment` requires the incident's `sysId`. The JSON body contains the chosen team name and the snapshot revision the coordinator saw. Send the coordinator session cookie if authentication is enabled. In accounts mode the assignment event records the authenticated login as the actor.
 
 ```json
 {"team":"Storage Operations","expectedRevision":12}
@@ -173,7 +178,7 @@ On `409` with `currentRevision`, fetch the snapshot again, display the current t
 
 ### Mass-problem workspace
 
-`GET /api/v1/problems/clusters` returns `{revision, items, exclusions}`. Each group in `items` has `id`, `title`, `reason`, `sysIds` and `incidentIds`. Candidates are inferred from service/symptom similarity and registration time. Manual membership and exclusions are shared in PostgreSQL. Exclusion records include `sysId`, `incidentId`, `header`, `groupTitle`, `contextKey`, and `excludedAt` (Unix milliseconds). A service, title or registration-time change sends the affected incident back through automatic grouping.
+`GET /api/v1/problems/clusters` returns `{revision, items, exclusions}`. Each group in `items` has `id`, `title`, `reason`, `sysIds` and `incidentIds`. Candidates are inferred from registration within 24 hours plus one of: the same service, similar header symptoms, or the same product and usage scenario with a similar problem description (header, short and full description). The same product alone is never enough. With `LLM_ENABLED`, `ai-worker` also asks the local model whether each automatic group describes one problem. A confirmed group gets the model's Russian `title`, and `reason` gets the suffix `. ИИ: <summary>`; an unconfirmed group keeps its rules title and gets `. ИИ не подтвердил общую проблему: <summary>`. The review never changes `id`, membership or exclusions, and it is ignored once any member's header, descriptions, product, service, scenario or the group's membership changes. Manual groups keep the title and reason they had when created. Manual membership and exclusions are shared in PostgreSQL. Exclusion records include `sysId`, `incidentId`, `header`, `groupTitle`, `contextKey`, and `excludedAt` (Unix milliseconds). A service, title or registration-time change sends the affected incident back through automatic grouping.
 
 Send one operation to `PATCH /api/v1/problems/clusters` using the current `revision` from GET as `expectedRevision`:
 
@@ -242,7 +247,7 @@ History and notification lists return records newest first. `limit` defaults to 
 
 A history event contains `eventId`, `revision`, `incidentRevision`, `sysId`, `incidentId`, `header`, `at`, the arrays `types` and `fields`, and the source records `previous` and `current`, each of which may be `null`. One event can have multiple types. The `type` filter accepts one of `created`, `critical`, `assigned`, `resolved`, `closed`, `reopened`, `research`, `deadline`, `team`, `priority`, `changed`, or `removed`. SSE subscription cursors track snapshot revisions. History cursors track individual events.
 
-Both notification routes accept `X-User-Id` to maintain read state per user. It allows 1–64 characters from `A–Z`, `a–z`, `0–9`, `_`, `.`, `@`, and `-`. If omitted, the server uses `DEFAULT_USER_ID`, typically `coordinator`.
+In accounts mode the authenticated login determines notification read state. In the open and legacy shared-key modes both notification routes accept `X-User-Id`. It allows 1–64 characters from `A–Z`, `a–z`, `0–9`, `_`, `.`, `@`, and `-`. If omitted, the server uses `DEFAULT_USER_ID`, typically `coordinator`.
 
 ```bash
 curl -fsSG "$API/events" --data-urlencode "incidentSysId=$SYS_ID" --data-urlencode 'limit=10'
