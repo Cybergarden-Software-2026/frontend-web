@@ -109,7 +109,7 @@ Nginx читает `/var/www/underctrl/current`. Каталоги со стар�
 
 ## 5. Nginx и backend API
 
-Пример рассчитан на домен `ctrl.example.com` и **будущий backend на `127.0.0.1:8000`**. Это пример, а не существующий адрес вашего API: замените домен и порт на согласованные с backend-командой. Backend должен принимать пути `/api/v1/...`; полный контракт — [API.md](API.md).
+При раздаче `dist/` с хоста Nginx передаёт запросы API на порт бэкенда. Ниже используется `127.0.0.1:8001` из `compose.vserver.yml`. Для стандартного Compose замените порт на `8080`, а `ctrl.example.com` замените своим доменом. При раздаче из Docker используйте схему из [README](../README.md#ручной-запуск-в-docker-на-vserver).
 
 Создайте `/etc/nginx/sites-available/underctrl`:
 
@@ -130,7 +130,7 @@ server {
 
     # Живые обновления: не накапливать события в буфере.
     location = /api/v1/events/stream {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8001;
         proxy_http_version 1.1;
         # При задании заголовков в location повторяем весь набор.
         proxy_set_header Host $host;
@@ -146,7 +146,7 @@ server {
 
     location /api/ {
         # Без завершающего /: исходный /api/v1/... сохраняется.
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8001;
         proxy_http_version 1.1;
     }
 

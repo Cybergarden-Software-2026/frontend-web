@@ -12,8 +12,8 @@ export interface Incident {
  [key: string]: unknown;
  sysId: string; id: string; header: string; description: string; shortDescription?: string;
  productName: string; productId?: string; productMasterId?: string; service: string; serviceId?: string | null; scenarioName?: string;
- stateId: number; stateEnum: string; state: string; stateReason?: string | null;
- priorityId: number; priority: string; urgencyId: number; urgency: string; impactId: number; impact: string;
+ stateId: number | null; stateEnum: string; state: string; stateReason?: string | null;
+ priorityId: number; priority: string; urgencyId: number | null; urgency: string; impactId: number | null; impact: string;
  assignedGroupName: string; assignedEmployee?: string; assignedEmployeeLogin?: string;
  submitDate: string; deadline: string | null; completionDate: string | null; lastAssignmentToTeamDateTime?: string | null;
  isNeedUp?: boolean | null; isDouble?: boolean; isMaster?: boolean; isEffect?: boolean; isReason?: boolean;
@@ -37,7 +37,7 @@ export interface Analysis {
 }
 export function stateOf(item: Incident): State {
  if (Object.hasOwn(STATES,item.stateEnum)) return item.stateEnum as State;
- if (item.stateEnum) return 'Unknown';
+ if (item.stateEnum || item.stateId == null) return 'Unknown';
  return ({ 0: 'Assigned', 2: 'WorkInProgress', 7: 'Resolved', 10: 'Closed', 20: 'Research' } as Record<number, State>)[item.stateId] ?? 'Unknown';
 }
 export function operational(item: Incident) { return ['Assigned','WorkInProgress'].includes(stateOf(item)); }
