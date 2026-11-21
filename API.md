@@ -20,6 +20,11 @@ Status reflects the committed implementation in the owning repository. Productio
 | `GET /api/v1/notifications` and `PUT /api/v1/notifications/{notification_id}/read` | `backend` | Implemented |
 | `GET /api/v1/openapi.json`, `GET /api/docs`, `GET /redoc`, and `GET /docs/oauth2-redirect` | `backend` | Implemented |
 | `GET /health` and `GET /health/ready` | `backend` | Implemented |
+| Coordinator shift statistics and client-side PDF / Excel `.xlsx` export using existing snapshots and event history | `frontend-web` | Implemented |
+| Compact personal analytics for a synthetic test account (demo data only) | `frontend-web` | Implemented (demo only) |
+| Mass-problem two-pane workspace, browser-local membership edits and exclusions, and sequential group assignment through the existing incident assignment route | `frontend-web` | Implemented |
+| Shared persistent mass-problem membership and atomic bulk assignment | `backend` | Not implemented |
+| Per-coordinator attribution of assignments (actor identity) | `backend` | Not implemented |
 | Same-origin `/api` proxy and `GET /healthz` | `frontend-web` | Implemented |
 | `POST /api/v1/demo` and `PUT /api/v1/incidents` | `backend` | Not implemented |
 
@@ -154,6 +159,20 @@ On `200`, the client receives the full web snapshot. Changing the team clears th
 
 On `409` with `currentRevision`, fetch the snapshot again, display the current team, and ask the coordinator to confirm the choice again. The API returns a separate `409` for incidents in `Resolved` or `Closed` state.
 
+### Mass-problem coordination in the web client
+
+The frontend detects candidate groups from the existing snapshot using service/symptom and registration-time similarity. These are reviewable hypotheses, not backend-owned mass-incident records. Selecting a group in the left panel shows its members and assignment controls in the right panel. Incident links open the detail screen. Group routing badges reflect the actual assignment teams.
+
+The web client can add active ungrouped incidents to a reviewed group. Manual membership is stored in localStorage alongside local exclusions, scoped to the API base URL. Reviewed groups can retain Research members while they require attention; completed or absent members are omitted from active assignment. A service, title or registration-date change invalidates that stored membership for the affected incident and returns it to automatic reconsideration. Manual edits are not shared with other coordinators and do not create backend group records.
+
+Excluding an incident removes it from automatic grouping **in this browser**; it does not delete the incident, modify its source JSON, or remove it from the general queue. Exclusions persist in localStorage, scoped to the API base URL, and can be restored. A service, title, or registration-date change triggers reconsideration. Separately assigning an incident uses the existing assignment endpoint; after a confirmed success the client excludes it locally from grouping.
+
+Group assignment freezes the reviewed member IDs and original teams when its dialog opens. It calls `POST /incidents/{sysId}/assignment` sequentially for those IDs, passing the latest successful snapshot revision into each request. Records already assigned to the selected team require no write; completed, closed or absent records are skipped. Each confirmed snapshot updates the shared frontend state, so queue, detail page and header stay consistent. There is no atomic bulk transaction: earlier successful assignments remain committed if a later request fails or the coordinator stops processing. Stop waits for the in-flight request and prevents starting the next one.
+
+On a conflict, changed team, network error or unconfirmed response, processing stops. Unknown outcomes are labelled separately from confirmed failures. The coordinator must fetch current data, review remaining assignments and explicitly resume; the client does not automatically retry writes. New group members are not silently added to an in-progress batch. The destination team stays fixed once part of the batch has succeeded.
+
+Shared membership/exclusion storage across coordinators and an atomic server bulk endpoint are **Not implemented**, owned by `backend`; this feature introduces no new HTTP routes or backend schema dependencies.
+
 ## 4. Receive real-time changes
 
 `GET /events/stream?view=web` opens a `text/event-stream` response. After the first import, the server sends a `snapshot` event as soon as a client connects and again whenever the revision changes. The `data` field contains the full JSON in the same format as `GET /snapshot?view=web`. The SSE `id` is the `revision`. The client can replace its previous state in full even if it missed intermediate revisions.
@@ -279,4 +298,32 @@ This is client-side key storage, not a new backend login capability. The existin
 
 ## Frontend deadline header warnings
 
-Implemented by `frontend-web`: the shared header includes Assigned, WorkInProgress and Research incidents when `(deadline - now) / (deadline - submitDate) < 0.3`, regardless of team while the deadline is still ahead. Once overdue, it remains in the header only while no resolution team is assigned (empty team or the coordinator team). Assigning a real resolution team removes the overdue warning; the queue still shows the overdue timer. Exactly 30% is excluded; overdue incidents remain eligible. Missing or invalid dates, non-positive total durations, future registration dates and Resolved/Closed incidents do not create this warning. It updates with the client clock and the existing full SSE snapshot. One incident has one card, prioritizing critical unassigned, then coordinator waiting, then deadline warning. Deadline-only warnings are silent; the two existing routing conditions retain their bell/audio behavior. This uses existing source fields without a new backend endpoint or schema change.
+Implemented by `frontend-web`: the shared header includes Assigned, WorkInProgress and Research incidents when `(deadline - now) / (deadline - submitDate) < 0.2`, regardless of team while the deadline is still ahead. Once overdue, it remains in the header only while no resolution team is assigned (empty team or the coordinator team). Assigning a real resolution team removes the overdue warning; the queue still shows the overdue timer. Exactly 20% is excluded; overdue incidents remain eligible. Missing or invalid dates, non-positive total durations, future registration dates and Resolved/Closed incidents do not create this warning. It updates with the client clock and the existing full SSE snapshot. One incident has one card, prioritizing unresolved critical incidents regardless of team (including Research), then coordinator waiting, then deadline warning. All three header conditions trigger the bell and audio on newly eligible or materially changed cards; timer ticks stay silent. The queue SLA color threshold remains 30%, independently of the header. This uses existing source fields without a new backend endpoint or schema change.
+
+## Coordinator statistics (frontend-web)
+
+Implemented in `frontend-web`: `#analytics` shows a compact personal dashboard for the explicitly labelled **test account**. The four personal metrics are transfers to resolution teams, average coordination time, the percentage meeting KPI strictly under 10 minutes, and critical transfers. The five most recent personal transfers appear on screen; the complete selected-period list is included in PDF and Excel `.xlsx` exports. The period is selected manually in Moscow time (UTC+3), with an inclusive start and exclusive end.
+
+Personal activity is **synthetic demo data**, kept in `src/data/demoPersonalStatistics.ts` and isolated from incident snapshots, SSE, saved credentials and team assignment requests. A separate domain model filters operations by coordinator ID and period. The current backend does not provide individual coordinator attribution; real personal statistics remain **Not implemented** in `backend`. No new HTTP route, identity claim or backend change is included. `assignedEmployeeLogin` identifies the incident executor and is not used as the coordinator.
+
+The small general-queue block uses actual loaded incidents and available history from the existing full snapshot and `GET /events?limit=200&beforeId=…`. It shows incidents awaiting a resolution team, critical unassigned incidents, and incidents waiting over 8 minutes at the end of the selected period. Missing general data displays as unavailable, never a false zero; incomplete history and stale snapshots are marked. Initial imports have no events, limiting historical reconstruction.
+
+The personal report contains four sections: personal summary, all personal transfers, the small general queue and provenance. Every worksheet and PDF page identifies the personal values as demo data; filenames include `DEMO`. Personal demo exports remain available when the general queue has not loaded, with unavailable general values explicitly marked. PDF embeds MTS fonts; Excel durations are numeric minutes.
+
+The coordinator KPI is a transfer duration strictly below 600,000 ms; exactly 10 minutes is a miss. The header waiting warning is independent: it starts strictly after 480,000 ms for active/research incidents assigned to the coordinator team. An empty team alone does not trigger this waiting warning; critical and deadline warnings retain their separate rules.
+
+## Team directory presentation (frontend-web)
+
+Implemented in `frontend-web`: `#teams` uses the existing `GET /teams` directory, including idle teams, and joins current snapshot incidents by the exact team name. During a directory failure it retains available names and falls back to snapshot teams. Search and team-state filters are client-side. Cards show priority/late/upcoming-deadline attention items, and counts of overdue, expiring and active incidents; Research remains active, and completed/closed incidents are excluded. The upcoming-deadline display uses the existing <30% rule. Team titles open their queue; incident links open the separate detail screen and preserve the Teams origin.
+
+The current `GET /teams` schema has no contact or description fields. Missing contacts are displayed as unavailable with copying disabled. The frontend does not invent phone numbers from the design example and adds no backend dependency. Coordinator descriptions use the configured coordinator role; other cards use a generic resolution-team label.
+
+
+## Client-side header test controls
+
+Implemented in `frontend-web`, with no new backend routes. The Simulation control is available in the sidebar for local header checks with a real API connection. It creates a local copy of a selected incident with a test ID and chosen title, priority, status, team, registration age, team-wait duration and relative deadline. Test copies only replace the header preview; source data, queue records and backend assignments are unchanged. Reset restores the live server header. Backend-mutating demo scenarios remain visible only when `VITE_DEMO_API=true`.
+
+All three conditions trigger the bell and chime: newly eligible unresolved critical incidents regardless of assigned team, coordinator-assigned records waiting **strictly more than eight minutes**, and unresolved incidents with **strictly less than 20%** of their registration-to-deadline time remaining. The same `headerAlerts` predicate drives the header and sound eligibility; countdown ticks, ordinary queue updates, resolution/closure and removal from the header do not produce a new chime. Initial snapshot loading is silent. Browser playback requires prior user interaction; the test form supplies that interaction.
+
+
+Critical header persistence (Implemented, `frontend-web`): priorityId 4 stays in the header in Assigned, WorkInProgress and Research, including after team assignment and with a missing, extended or expired deadline. Resolved/Closed remove the card; reopening makes it eligible again. Lowering priority re-evaluates the remaining waiting/deadline conditions. This does not change the backend/queue critical group, where Research is still excluded, and requires no new backend route.

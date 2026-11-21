@@ -23,8 +23,9 @@ export function Sla({item,now}:{item:Incident;now:number}) {
  return <span className={`sla sla-${kind}`} title={`Дедлайн: ${dateTime(item.deadline)}`}><strong>{kind==='late'?'−':''}{value}</strong><small>{kind==='late'?'Срок истёк':kind==='soon'?'Скоро истечёт':'До решения'}</small></span>;
 }
 export function Empty({icon='inbox',title,children}:{icon?:string;title:string;children:ReactNode}) {return <div className="empty-state"><span className="empty-icon"><Icon name={icon} size={28}/></span><strong>{title}</strong><p>{children}</p></div>;}
-export function Dialog({title,children,onClose,wide=false}:{title:string;children:ReactNode;onClose:()=>void;wide?:boolean}) {
- const ref=useRef<HTMLDialogElement>(null);
- useEffect(()=>{const dialog=ref.current!;dialog.showModal();const listener=(e:Event)=>{e.preventDefault();onClose();};dialog.addEventListener('cancel',listener);return()=>{dialog.removeEventListener('cancel',listener);dialog.close();};},[]);
- return <dialog ref={ref} className={`dialog ${wide?'dialog-wide':''}`} onClick={e=>{if(e.target===ref.current){const box=ref.current.getBoundingClientRect();if(e.clientX<box.left||e.clientX>box.right||e.clientY<box.top||e.clientY>box.bottom)onClose();}}}><div className="dialog-header"><h2>{title}</h2><button className="icon-button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></div><div className="dialog-content">{children}</div></dialog>;
+export function Dialog({title,children,onClose,wide=false,footer,className=''}:{title:string;children:ReactNode;onClose:()=>void;wide?:boolean;footer?:ReactNode;className?:string}) {
+ const ref=useRef<HTMLDialogElement>(null),closeRef=useRef(onClose);
+ closeRef.current=onClose;
+ useEffect(()=>{const dialog=ref.current!;dialog.showModal();const listener=(e:Event)=>{e.preventDefault();closeRef.current();};dialog.addEventListener('cancel',listener);return()=>{dialog.removeEventListener('cancel',listener);dialog.close();};},[]);
+ return <dialog ref={ref} className={`dialog ${wide?'dialog-wide':''} ${className}`} onClick={e=>{if(e.target===ref.current){const box=ref.current.getBoundingClientRect();if(e.clientX<box.left||e.clientX>box.right||e.clientY<box.top||e.clientY>box.bottom)onClose();}}}><div className="dialog-header"><h2>{title}</h2><button className="icon-button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></div><div className="dialog-content">{children}</div>{footer}</dialog>;
 }

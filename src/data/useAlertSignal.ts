@@ -19,7 +19,7 @@ export function useAlertSignal(items:Incident[],now:number,ready:boolean){
  },[]);
  useEffect(()=>{
   if(tracker.current.update(items,now,ready)){setSequence(++serial.current);void bellAudio.ring();}
-  if(ready&&!headerAlerts(items,now).some(alert=>alert.kind!=='deadline')){bellAudio.cancelPending();setSequence(0);}
+  if(ready&&headerAlerts(items,now).length===0){bellAudio.cancelPending();setSequence(0);}
  },[items,Math.floor(now/1000),ready]);
  useEffect(()=>{if(!sequence)return;const timer=setTimeout(()=>setSequence(0),3200);return()=>clearTimeout(timer);},[sequence]);
  return {sequence,audioStatus};

@@ -35,7 +35,7 @@ export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStat
  const tone=criticalCount?'critical':'waiting';
  const visible=alerts.slice(currentPage*capacity,(currentPage+1)*capacity);
  function turn(direction:number){setPage((currentPage+direction+pageCount)%pageCount);}
- return <header className={`incident-hero wave-hero ${alerts.length?`has-routing-alerts spotlight-hero spotlight-${tone}`:''}`} aria-label="Важные инциденты без команды решения">
+ return <header className={`incident-hero wave-hero ${alerts.length?`has-routing-alerts spotlight-hero spotlight-${tone}`:''}`} aria-label="Важные инциденты">
   <div className="hero-keycaps" aria-hidden="true">{Array.from({length:3},(_,row)=>Array.from({length:12},(_,col)=>{const index=row*12+col,kind=(row+col)%3===0?"logo":"key",size=[34,46,39,52][index%4];return <span key={`fill-${index}`} className={`hero-pattern-item hero-pattern-${kind}`} style={{"--pattern-x":`${col*8.8+row*2}%`,"--pattern-y":`${row*65-12+(col%2)*17}px`,"--pattern-size":`${size}px`,"--pattern-rotation":`${index%2?-13:12}deg`} as CSSProperties}>{kind==="logo"?<MtsPattern/>:<span>{["+","{ }","Ctrl","↵"][index%4]}</span>}</span>;}))}{decorations.map(([kind,x,y,size,rotation],index)=><span key={index} className={`hero-pattern-item hero-pattern-${kind}`} style={{'--pattern-x':`${x}%`,'--pattern-y':`${y}px`,'--pattern-size':`${size}px`,'--pattern-rotation':`${rotation}deg`} as CSSProperties}>{kind==='logo'?<MtsPattern/>:<span>{['+','{ }','Ctrl','↵'][index%4]}</span>}</span>)}</div>
   {alerts.length>0?<>
    <div className="spotlight-summary">
@@ -43,7 +43,7 @@ export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStat
     <div className="spotlight-summary-copy"><span className="spotlight-eyebrow">МТС · ЦЕНТР КООРДИНАЦИИ</span><strong>{criticalCount||deadlineCount?'Нужна ваша реакция':'Подключите команду'}</strong></div>
    </div>
    <div className="spotlight-deck" ref={deck} onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocusCapture={()=>setPaused(true)} onBlurCapture={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setPaused(false);}}>
-    <div key={`${currentPage}-${alertIds}`} className="spotlight-cards" role="list" aria-label="Важные инциденты без команды решения">{visible.map((alert,index)=><div key={alert.item.sysId} role="listitem" className="spotlight-card-slot" style={{'--card-delay':`${index*100}ms`} as CSSProperties}>
+    <div key={`${currentPage}-${alertIds}`} className="spotlight-cards" role="list" aria-label="Важные инциденты">{visible.map((alert,index)=><div key={alert.item.sysId} role="listitem" className="spotlight-card-slot" style={{'--card-delay':`${index*100}ms`} as CSSProperties}>
      <button className={`header-alert spotlight-card spotlight-card-${alert.tone}`} onClick={()=>onOpen(alert.item.sysId)} title={`${alert.item.id}: ${alert.reason}`}>
       <span className="spotlight-card-label"><Icon name={alert.tone==='critical'?'alert':'clock'} size={13}/>{alert.kind==='critical'?'Критический инцидент':alert.kind==='deadline'?alert.reason:'Ожидает команды'}</span>
       <span className="header-alert-title">{alert.item.header}</span>
@@ -57,6 +57,6 @@ export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStat
      <span className="wave-bell-icon"><svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M24 12a8 8 0 0 0-16 0c0 8-3 8-3 11h22c0-3-3-3-3-11Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M13 27a3 3 0 0 0 6 0M16 10v6m0 3h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span>
     </button>
    </div>}
-  </>:<div className="wave-empty"><div className="calm-orbit" aria-hidden="true"><span className="calm-ring calm-ring-one"/><span className="calm-ring calm-ring-two"/><span className="calm-core"><Icon name="check" size={25}/></span><svg viewBox="0 0 120 46"><path d="M0 23h30l8-12 10 24 10-17 6 5h56"/></svg></div><span className="wave-empty-brand">МТС <i/> underCtrl</span><strong>Всё под контролем</strong><span>Нет срочных задач без команды</span></div>}
+  </>:<div className="wave-empty"><div className="calm-orbit" aria-hidden="true"><span className="calm-ring calm-ring-one"/><span className="calm-ring calm-ring-two"/><span className="calm-core"><Icon name="check" size={25}/></span><svg viewBox="0 0 120 46"><path d="M0 23h30l8-12 10 24 10-17 6 5h56"/></svg></div><span className="wave-empty-brand">МТС <i/> underCtrl</span><strong>Всё под контролем</strong><span>Нет срочных инцидентов</span></div>}
  </header>;
 }

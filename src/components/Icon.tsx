@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 const glyphs: Record<string, string> = {
+ download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
  archive: '<path d="M4 8h16v13H4zM3 3h18v5H3zM9 12h6"/>',
  globe: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4.4" ry="9"/><path d="M3 12h18M4.7 6.8a19 19 0 0 0 14.6 0M4.7 17.2a19 19 0 0 1 14.6 0"/>',
  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',

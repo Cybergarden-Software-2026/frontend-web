@@ -5,7 +5,7 @@ import {AlertSignalTracker,IncidentArrivalTracker} from '../src/domain/alertSign
 import {BellAudio,MediaBell} from '../src/data/bellAudio.ts';
 const seed=JSON.parse(readFileSync(new URL('../data/seed.json',import.meta.url),'utf8'));
 const now=Date.parse('2026-11-20T12:00:00Z');
-const item={...seed[0],priorityId:4,stateEnum:'Assigned',stateId:0,deadline:new Date(now+10*60_000).toISOString()};
+const item={...seed[0],priorityId:4,stateEnum:'Assigned',stateId:0,submitDate:new Date(now-10*60_000).toISOString(),deadline:new Date(now+10*60_000).toISOString()};
 test('initial data and countdown stay silent; material updates of eligible incidents ring',()=>{
  const tracker=new AlertSignalTracker();assert.equal(tracker.update([item],now),false);
  assert.equal(tracker.update([item],now+1000),false);
@@ -23,15 +23,21 @@ test('a coordinator incident rings only when waiting exceeds 8 minutes',()=>{
  assert.equal(tracker.update([quiet],now+60_001),true);
  assert.equal(tracker.update([quiet],now+61_000),false);
 });
-test('assigned critical and overdue incidents never produce a routing chime',()=>{
+test('assigned critical incidents ring and remain visible until resolved; noncritical assigned overdue stays silent',()=>{
  const tracker=new AlertSignalTracker();tracker.update([],now);
- const assigned={...item,assignedGroupName:'Команда X',deadline:new Date(now-60_000).toISOString()};
- assert.equal(tracker.update([assigned],now),false);
- assert.equal(tracker.update([{...assigned,deadline:new Date(now-30_000).toISOString()}],now),false);
+ const assigned={...item,assignedGroupName:'Resolution team',deadline:new Date(now-60_000).toISOString()};
+ assert.equal(tracker.update([assigned],now),true);
+ assert.equal(tracker.update([assigned],now+1000),false);
+ assert.equal(tracker.update([{...assigned,stateEnum:'Resolved'}],now+1000),false);
+ assert.equal(tracker.update([{...assigned,priorityId:2}],now+1000),false);
 });
-test('assigning a resolution team removes the alert without sounding again',()=>{
+test('assigning a team does not remove a critical card; resolution and closure remove it and reopening rings',()=>{
  const tracker=new AlertSignalTracker();tracker.update([],now);assert.equal(tracker.update([item],now),true);
- assert.equal(tracker.update([{...item,assignedGroupName:'Команда X'}],now),false);
+ const assigned={...item,assignedGroupName:'Resolution team'};
+ assert.equal(tracker.update([assigned],now),true);
+ assert.equal(tracker.update([assigned],now+1000),false);
+ for(const stateEnum of ['Resolved','Closed'])assert.equal(tracker.update([{...assigned,stateEnum}],now),false);
+ assert.equal(tracker.update([assigned],now+2000),true);
 });
 test('new row tracking uses complete source IDs and does not mistake a page change for arrival',()=>{
  const tracker=new IncidentArrivalTracker();assert.deepEqual(tracker.update([item]),[]);
@@ -39,9 +45,9 @@ test('new row tracking uses complete source IDs and does not mistake a page chan
  assert.deepEqual(tracker.update([item,{...item,sysId:'new',id:'NEW'}]),['new']);
  assert.deepEqual(tracker.update([item,{...item,sysId:'new',id:'NEW'}]),[]);
 });
-test('Research alone does not trigger a critical alert',()=>{
+test('unresolved critical Research remains in header and signals even with a resolution team',()=>{
  const tracker=new AlertSignalTracker();tracker.update([],now);
- assert.equal(tracker.update([{...item,stateEnum:'Research',assignedGroupName:'Команда X'}],now),false);
+ assert.equal(tracker.update([{...item,stateEnum:'Research',assignedGroupName:'Команда X'}],now),true);
 });
 function fakeAudio(){
  let starts=0,resumes=0,created=0;
@@ -87,9 +93,54 @@ test('cancelled native audio does not play a stale alert',async()=>{
  const media=fakeMedia();await media.bell.ring();media.bell.cancelPending();await media.bell.activate();assert.deepEqual(media.plays,[0]);
 });
 
-test('crossing the deadline threshold alone is silent; becoming critical still rings',()=>{
- const record={...item,priorityId:2,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now+3600_000).toISOString(),submitDate:new Date(now-70*60_000).toISOString(),deadline:new Date(now+30*60_000).toISOString()},tracker=new AlertSignalTracker();
- tracker.update([record],now);assert.equal(tracker.update([record],now+1),false);
- assert.equal(tracker.update([{...record,deadline:new Date(now-1000).toISOString()}],now),false);
- assert.equal(tracker.update([{...record,priorityId:4}],now),true);
+test('crossing strictly below 20 percent produces one header chime, including assigned Research',()=>{
+ for(const stateEnum of ['Assigned','WorkInProgress','Research']){
+  const record={...item,stateEnum,priorityId:2,assignedGroupName:'Resolution team',lastAssignmentToTeamDateTime:new Date(now).toISOString(),submitDate:new Date(now-80*60_000).toISOString(),deadline:new Date(now+20*60_000).toISOString()},tracker=new AlertSignalTracker();
+  tracker.update([record],now);assert.equal(tracker.update([record],now),false);
+  assert.equal(tracker.update([record],now+1),true);
+  assert.equal(tracker.update([record],now+1000),false);
+  assert.equal(tracker.update([{...record,stateEnum:'Resolved'}],now+2000),false);
+ }
+});
+
+test('coordinator wait crossing 8 minutes enters header and produces one chime; ordinary updates stay silent',async()=>{
+ const {headerAlerts}=await import('../src/domain/operations.ts');
+ const {COORDINATOR_TEAM}=await import('../src/domain/incidents.ts');
+ const waiting={...item,sysId:'coordinator-boundary',priorityId:2,assignedGroupName:COORDINATOR_TEAM,submitDate:new Date(now-60*60_000).toISOString(),deadline:new Date(now+60*60_000).toISOString(),lastAssignmentToTeamDateTime:new Date(now-7*60_000-55_000).toISOString()};
+ const ordinary={...waiting,sysId:'ordinary',assignedGroupName:'Resolution team'};
+ const tracker=new AlertSignalTracker(),media=fakeMedia();await media.bell.activate();
+ tracker.update([waiting,ordinary],now);assert.equal(headerAlerts([waiting,ordinary],now).length,0);
+ assert.equal(tracker.update([waiting,{...ordinary,header:'New title',priorityId:3}],now+5000),false);
+ assert.equal(headerAlerts([waiting],now+5000).length,0);
+ const crossing=now+6000;
+ assert.equal(headerAlerts([waiting],crossing)[0].kind,'waiting');
+ const ring=tracker.update([waiting,ordinary],crossing);assert.equal(ring,true);if(ring)await media.bell.ring();
+ assert.deepEqual(media.plays,[0,1]);assert.equal(tracker.update([waiting,ordinary],crossing+1000),false);
+ const routed={...waiting,assignedGroupName:'Resolution team'};
+ assert.equal(headerAlerts([routed],crossing).length,0);assert.equal(tracker.update([routed,ordinary],crossing),false);
+});
+test('simulation inputs control header eligibility without modifying the source incident',async()=>{
+ const {buildHeaderTestIncident}=await import('../src/domain/headerSimulation.ts');
+ const {headerAlerts}=await import('../src/domain/operations.ts');
+ const {COORDINATOR_TEAM}=await import('../src/domain/incidents.ts');
+ const input={title:'My test',priority:2,state:'Assigned',team:COORDINATOR_TEAM,waitingMinutes:8,waitingSeconds:10,registeredMinutes:60,deadlineMinutes:60};
+ const original=structuredClone(item),sim=buildHeaderTestIncident(item,input,now,'test');
+ assert.deepEqual(item,original);assert.ok(sim.sysId.startsWith('header-test-'));assert.equal(headerAlerts([sim],now)[0].kind,'waiting');
+ for(const state of ['Resolved','Closed'])assert.equal(headerAlerts([buildHeaderTestIncident(item,{...input,state},now,state)],now).length,0);
+ assert.equal(headerAlerts([buildHeaderTestIncident(item,{...input,team:'Resolution team'},now,'assigned')],now).length,0);
+ const critical=buildHeaderTestIncident(item,{...input,team:'',priority:4},now,'critical');assert.equal(headerAlerts([critical],now)[0].kind,'critical');
+});
+
+
+test('header sound starts below 20 percent while queue SLA coloring keeps its 30 percent threshold',async()=>{
+ const {headerAlerts}=await import('../src/domain/operations.ts');
+ const {displaySlaKind}=await import('../src/domain/deadlineDisplay.ts');
+ const tracker=new AlertSignalTracker();tracker.update([],now);
+ for(const minutes of [30,29,21,20]){
+  const record={...item,priorityId:2,assignedGroupName:'Resolution team',submitDate:new Date(now-(100-minutes)*60_000).toISOString(),deadline:new Date(now+minutes*60_000).toISOString()};
+  assert.equal(headerAlerts([record],now).length,0);assert.equal(tracker.update([record],now),false);
+  assert.equal(displaySlaKind(record,now),minutes<30?'soon':'normal');
+ }
+ const record={...item,priorityId:2,assignedGroupName:'Resolution team',submitDate:new Date(now-81*60_000).toISOString(),deadline:new Date(now+19*60_000).toISOString()};
+ assert.match(headerAlerts([record],now)[0].reason,/20%/);assert.equal(tracker.update([record],now),true);
 });
