@@ -42,8 +42,13 @@ test('atomic JSON status changes reach the shared snapshot, queue, open incident
   const openSysId = initial.items[0].sysId;
   assert.equal(headerAlerts(initial.items, now)[0].tone, 'critical');
   let revision = initial.revision;
+  Object.assign(rows[0], {assignedGroupName:'Resolution team'});
+  writeFileSync(path + '.next', JSON.stringify(rows)); renameSync(path + '.next', path);
+  const routedCritical = await nextSnapshot();
+  assert.equal(routedCritical.revision, ++revision);
+  assert.equal(headerAlerts(routedCritical.items, now)[0].kind, 'critical');
   for (const [stateEnum, stateId, state, group, expectedHeader] of [
-   ['Research', 20, 'Исследование ситуации', 'research', null],
+   ['Research', 20, 'Исследование ситуации', 'research', 'critical'],
    ['Resolved', 7, 'Завершен', 'resolved', null],
    ['WorkInProgress', 2, 'Выполняется', 'critical', 'critical'],
    ['Closed', 10, 'Закрыт', 'closed', null],
@@ -61,8 +66,8 @@ test('atomic JSON status changes reach the shared snapshot, queue, open incident
    assert.equal(snapshot.events[0].current.stateEnum, stateEnum);
    assert.ok(snapshot.events[0].fields.includes('stateEnum'));
   }
-  // Research is excluded from critical, but still waits for a resolution team.
-  Object.assign(rows[0], { stateEnum: 'Research', stateId: 20, state: 'Исследование ситуации',
+  // The queue excludes Research from its critical group. A lower-priority Research record still warns about coordinator waiting.
+  Object.assign(rows[0], { priorityId: 2, stateEnum: 'Research', stateId: 20, state: 'Исследование ситуации',
    assignedGroupName: COORDINATOR_TEAM, lastAssignmentToTeamDateTime: new Date(now - 9 * 60_000).toISOString() });
   writeFileSync(path + '.next', JSON.stringify(rows)); renameSync(path + '.next', path);
   const snapshot = await nextSnapshot();

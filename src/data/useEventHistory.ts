@@ -4,12 +4,13 @@ import { timestamp } from '../domain/incidents';
 import { JOURNAL_PERIODS } from '../domain/eventJournal';
 import { api } from './api';
 
-export function useEventHistory(period:string,connected:boolean,now:number) {
- const [archive,setArchive]=useState<ChangeEvent[]>([]),[loading,setLoading]=useState(false),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
+export function useEventHistory(period:string,connected:boolean,now:number,since?:number) {
+ const [archive,setArchive]=useState<ChangeEvent[]>([]),[loading,setLoading]=useState(false),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0),[settledFor,setSettledFor]=useState<string|null>(null);
+ const requestKey=period+':'+String(since)+':'+attempt;
  useEffect(()=>{
-  if(!connected){setLoading(false);return;}
+  if(!connected){setLoading(false);setSettledFor(null);return;}
   const controller=new AbortController();let alive=true;
-  const duration=JOURNAL_PERIODS.find(value=>value.id===period)?.duration??24*3600_000,cutoff=now-duration;
+  const duration=JOURNAL_PERIODS.find(value=>value.id===period)?.duration??24*3600_000,cutoff=since??now-duration;
   setLoading(true);setFailed(false);
   async function load(){
    const collected:ChangeEvent[]=[],seen=new Set<string>();let cursor:string|undefined;
@@ -22,10 +23,10 @@ export function useEventHistory(period:string,connected:boolean,now:number) {
      cursor=page.nextCursor;seen.add(cursor);
     }while(alive);
    }catch(error){if(alive&&!(error instanceof DOMException&&error.name==='AbortError'))setFailed(true);}
-   finally{if(alive)setLoading(false);}
+   finally{if(alive){setLoading(false);setSettledFor(requestKey);}}
   }
   void load();
   return()=>{alive=false;controller.abort();};
- },[period,connected,attempt]);
- return {archive,loading,failed,retry:()=>setAttempt(value=>value+1)};
+ },[period,connected,attempt,since]);
+ return {archive,loading,failed,settled:settledFor===requestKey,retry:()=>setAttempt(value=>value+1)};
 }

@@ -174,3 +174,12 @@ html,body,#root{height:100%;overflow:hidden}
 @keyframes bell-swing{0%,100%{transform:rotate(0)}20%{transform:rotate(26deg)}60%{transform:rotate(-26deg)}80%{transform:rotate(12deg)}}
 @media(prefers-reduced-motion:reduce){.emerging-bell.is-ringing{animation:bell-emerge-reduced 3.2s linear both}.is-ringing .ringing-bell-icon{animation:none}}
 @keyframes bell-emerge-reduced{0%,90%{opacity:1}100%{opacity:0}}
+
+/* Assignment actions stay outside the scrollable team list. */
+.assignment-dialog[open]{height:min(740px,88dvh);overflow:hidden}
+.assignment-dialog>.dialog-header{flex-shrink:0}
+.assignment-dialog>.dialog-content{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding-bottom:16px}
+.assignment-dialog .assignment-intro,.assignment-dialog .assignment-search,.assignment-dialog .assignment-note,.assignment-dialog .form-error,.assignment-dialog .loading-text{flex-shrink:0}
+.assignment-dialog .assignment-options{flex:1;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;align-content:start}
+.assignment-dialog>.assignment-footer{flex-shrink:0;margin:0;padding:16px 25px max(16px,env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line)}
+@media(max-width:620px){.assignment-dialog[open]{height:90dvh}.assignment-dialog>.assignment-footer{padding-inline:18px}}

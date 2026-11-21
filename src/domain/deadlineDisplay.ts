@@ -14,5 +14,5 @@ export function displaySlaKind(item: Incident, now: number): Sla {
  if (deadline === null) return 'unknown';
  if (deadline <= now) return 'late';
  const ratio=deadlineRemainingRatio(item,now);
- return ratio!==null&&ratio<0.3?'soon':'normal';
+ return ratio!==null&&ratio<0.2?'soon':'normal';
 }

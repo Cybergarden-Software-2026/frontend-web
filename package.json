@@ -16,16 +16,19 @@
     "api:demo": "node tools/demo-api/index.mjs"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/node": "^24.0.0",
+    "@vitejs/plugin-react": "^5.1.1",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1",
-    "@vitejs/plugin-react": "^5.1.1"
+    "vite": "^7.3.1"
   },
   "packageManager": "pnpm@11.25.0"
 }

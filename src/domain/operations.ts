@@ -20,6 +20,7 @@ export function queryIncidents(items:Incident[],query:QueueQuery,revision:number
  return {items:rows.slice((page-1)*pageSize,page*pageSize),total:rows.length,page,pageSize,totalPages,revision};
 }
 export const ROUTING_WAIT_MS=8*60_000;
+export const HEADER_DEADLINE_RATIO=0.2;
 export interface HeaderAlert {item:Incident;tone:'critical'|'warning';kind:'critical'|'waiting'|'deadline';reason:string;key:string;waitingSince:number|null;}
 export function awaitingResolutionTeam(item:Incident):boolean {
  const team=item.assignedGroupName.trim();
@@ -29,14 +30,14 @@ export function headerAlerts(items:Incident[],now:number):HeaderAlert[] {
  return items.flatMap(item=>{
   if(!requiresAttention(item))return [];
   const waitingSince=timestamp(item.lastAssignmentToTeamDateTime)??timestamp(item.submitDate);
-  const critical=awaitingResolutionTeam(item)&&belongs(item,'critical');
-  const waiting=awaitingResolutionTeam(item)&&waitingSince!==null&&now-waitingSince>ROUTING_WAIT_MS;
+  const critical=item.priorityId===4;
+  const waiting=belongs(item,'coordinators')&&waitingSince!==null&&now-waitingSince>ROUTING_WAIT_MS;
   const ratio=deadlineRemainingRatio(item,now);
-  const nearDeadline=ratio!==null&&ratio<0.3&&(ratio>0||awaitingResolutionTeam(item));
+  const nearDeadline=ratio!==null&&ratio<HEADER_DEADLINE_RATIO&&(ratio>0||awaitingResolutionTeam(item));
   if(!critical&&!waiting&&!nearDeadline)return [];
   const kind:HeaderAlert['kind']=critical?'critical':waiting?'waiting':'deadline';
   const tone:HeaderAlert['tone']=critical?'critical':'warning';
-  const reason=critical?'Критический инцидент без команды':waiting?'Ожидает распределения больше 8 минут':(ratio??1)<=0?'Срок решения истёк':'Осталось меньше 30% срока';
+  const reason=critical?'Критический инцидент':waiting?'Ожидает распределения больше 8 минут':(ratio??1)<=0?'Срок решения истёк':'Истекает';
   return [{item,tone,kind,waitingSince,reason,key:`${item.sysId}:${kind}`}];
  }).sort((a,b)=>Number(b.tone==='critical')-Number(a.tone==='critical')||(a.waitingSince??Infinity)-(b.waitingSince??Infinity)||a.item.id.localeCompare(b.item.id));
 }

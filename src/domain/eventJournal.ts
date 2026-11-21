@@ -2,18 +2,18 @@ import type { ChangeEvent } from './incidents.ts';
 import { describeEvent, timestamp } from './incidents.ts';
 
 export const JOURNAL_TYPES = [
- {id:'team',label:'Назначение команды',icon:'userPlus'},
- {id:'created',label:'Новый инцидент',icon:'plus'},
- {id:'critical',label:'Критический инцидент',icon:'alert'},
- {id:'state',label:'Изменение статуса',icon:'refresh'},
- {id:'research',label:'Начало исследования',icon:'search'},
- {id:'resolved',label:'Проблема устранена',icon:'circleCheck'},
- {id:'closed',label:'Инцидент закрыт',icon:'check'},
- {id:'reopened',label:'Возврат в работу',icon:'refresh'},
- {id:'priority',label:'Изменение приоритета',icon:'bolt'},
- {id:'deadline',label:'Изменение срока',icon:'clock'},
- {id:'removed',label:'Удаление инцидента',icon:'archive'},
- {id:'changed',label:'Обновление данных',icon:'filter'},
+ {id:'team',label:'Назначение команды',icon:'userPlus',tone:'purple'},
+ {id:'created',label:'Новый инцидент',icon:'plus',tone:'blue'},
+ {id:'critical',label:'Критический инцидент',icon:'alert',tone:'red'},
+ {id:'state',label:'Изменение статуса',icon:'refresh',tone:'blue'},
+ {id:'research',label:'Начало исследования',icon:'search',tone:'teal'},
+ {id:'resolved',label:'Проблема устранена',icon:'circleCheck',tone:'green'},
+ {id:'closed',label:'Инцидент закрыт',icon:'check',tone:'green'},
+ {id:'reopened',label:'Возврат в работу',icon:'refresh',tone:'orange'},
+ {id:'priority',label:'Изменение приоритета',icon:'bolt',tone:'orange'},
+ {id:'deadline',label:'Изменение срока',icon:'clock',tone:'amber'},
+ {id:'removed',label:'Удаление инцидента',icon:'archive',tone:'gray'},
+ {id:'changed',label:'Обновление данных',icon:'filter',tone:'gray'},
 ] as const;
 export const JOURNAL_PERIODS = [
  {id:'24h',label:'Последние 24 часа',duration:24*3600_000},

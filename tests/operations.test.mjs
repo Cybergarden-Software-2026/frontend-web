@@ -6,18 +6,23 @@ import {analyze,COORDINATOR_TEAM} from '../src/domain/incidents.ts';
 const seed=JSON.parse(readFileSync(new URL('../data/seed.json',import.meta.url),'utf8'));
 const now=Date.parse('2026-11-20T12:00:00Z');
 const base={...seed[0],assignedGroupName:'Команда X',stateEnum:'Assigned',priorityId:2,submitDate:new Date(now-20*60_000).toISOString(),deadline:new Date(now+60*60_000).toISOString()};
-test('critical routing alerts require no resolution team and exclude Research and finished states',()=>{
- for(const assignedGroupName of ['',COORDINATOR_TEAM])for(const stateEnum of ['Assigned','WorkInProgress'])assert.equal(headerAlerts([{...base,assignedGroupName,stateEnum,priorityId:4}],now)[0].tone,'critical');
- assert.equal(headerAlerts([{...base,assignedGroupName:'Команда X',priorityId:4}],now).length,0);
- for(const stateEnum of ['Research','Resolved','Closed'])assert.equal(headerAlerts([{...base,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now).toISOString(),stateEnum,priorityId:4}],now).length,0);
+test('critical header cards persist for every team and unresolved state, independently of queue grouping',()=>{
+ for(const assignedGroupName of ['',COORDINATOR_TEAM,'Resolution team'])for(const stateEnum of ['Assigned','WorkInProgress','Research']){
+  const record={...base,assignedGroupName,stateEnum,priorityId:4,lastAssignmentToTeamDateTime:new Date(now).toISOString()};
+  assert.equal(headerAlerts([record],now)[0].kind,'critical');
+  assert.equal(headerAlerts([{...record,deadline:null}],now)[0].kind,'critical');
+  assert.equal(headerAlerts([{...record,deadline:new Date(now-60_000).toISOString()}],now)[0].kind,'critical');
+  assert.equal(queryIncidents([record],{group:'critical'},1,now).total,stateEnum==='Research'?0:1);
+ }
+ for(const stateEnum of ['Resolved','Closed','Unknown'])assert.equal(headerAlerts([{...base,stateEnum,priorityId:4}],now).length,0);
 });
 test('routing waits start strictly after 8 minutes; deadline warnings work independently',()=>{
  const waiting={...base,assignedGroupName:COORDINATOR_TEAM,lastAssignmentToTeamDateTime:new Date(now-8*60_000).toISOString()};
  assert.equal(headerAlerts([waiting],now).length,0);
  assert.equal(headerAlerts([waiting],now+1)[0].tone,'warning');
- assert.equal(headerAlerts([{...waiting,assignedGroupName:''}],now+1)[0].tone,'warning');
+ assert.equal(headerAlerts([{...waiting,assignedGroupName:''}],now+1).length,0);
  assert.equal(headerAlerts([{...waiting,assignedGroupName:'Команда X',deadline:new Date(now-60_000).toISOString()}],now).length,0);
- assert.equal(headerAlerts([{...base,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now).toISOString(),deadline:new Date(now+5*60_000).toISOString()}],now)[0].kind,'deadline');
+ assert.equal(headerAlerts([{...base,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now).toISOString(),deadline:new Date(now+4*60_000).toISOString()}],now)[0].kind,'deadline');
  assert.equal(headerAlerts([{...base,assignedEmployee:''}],now).length,0);
 });
 test('waiting research stays visible to coordinators; empty assignment date falls back to registration',()=>{
@@ -57,9 +62,9 @@ test('priority, state, SLA and team filters compose before pagination',()=>{
  assert.equal(detectMassProblems([rows[0],rows[1]]).length,0);
 });
 
-test('deadline warning uses strictly less than 30% of registration-to-deadline time',()=>{
- const record={...base,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now+60*60_000).toISOString(),submitDate:new Date(now-70*60_000).toISOString(),deadline:new Date(now+30*60_000).toISOString()};
- assert.equal(deadlineRemainingRatio(record,now),0.3);assert.equal(headerAlerts([record],now).length,0);
+test('deadline warning uses strictly less than 20% of registration-to-deadline time',()=>{
+ const record={...base,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now+60*60_000).toISOString(),submitDate:new Date(now-80*60_000).toISOString(),deadline:new Date(now+20*60_000).toISOString()};
+ assert.equal(deadlineRemainingRatio(record,now),0.2);assert.equal(headerAlerts([record],now).length,0);
  assert.equal(headerAlerts([record],now+1)[0].kind,'deadline');
  const [expired]=headerAlerts([record],now+31*60_000);assert.equal(expired.reason,'Срок решения истёк');
  assert.equal(headerAlerts([record],now-60_000).length,0);
@@ -71,7 +76,7 @@ test('upcoming deadline warnings include assigned research and deduplicate routi
  for(const stateEnum of ['Resolved','Closed','Unknown'])assert.equal(headerAlerts([{...record,stateEnum}],now).length,0);
  const both={...record,priorityId:4,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now-9*60_000).toISOString()};
  assert.equal(headerAlerts([both],now).length,1);assert.equal(headerAlerts([both],now)[0].kind,'critical');
- assert.equal(headerAlerts([{...both,priorityId:2}],now)[0].kind,'waiting');
+ assert.equal(headerAlerts([{...both,priorityId:2,assignedGroupName:COORDINATOR_TEAM}],now)[0].kind,'waiting');
 });
 test('deadline percentage ignores missing, invalid and reversed date ranges',()=>{
  for(const patch of [{deadline:null},{deadline:'invalid'},{submitDate:null},{submitDate:'0001-01-01T00:00:00Z'},{deadline:base.submitDate},{deadline:new Date(now-86400_000).toISOString()},{submitDate:new Date(now+30*60_000).toISOString()}]){

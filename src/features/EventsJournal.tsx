@@ -3,6 +3,7 @@ import type { ChangeEvent } from '../domain/incidents';
 import { timestamp } from '../domain/incidents';
 import { JOURNAL_TYPES,JOURNAL_PERIODS,journalEventType,journalDescription,selectJournal } from '../domain/eventJournal';
 import { Icon } from '../components/Icon';
+import { FilterSelect } from '../components/FilterSelect';
 import { useEventHistory } from '../data/useEventHistory';
 
 const timeFormat=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -20,8 +21,8 @@ export function EventsJournal({events,now,loading,connected,onOpen}:{events:Chan
   <header className="journal-heading"><h1 id="journal-title" tabIndex={-1}>Журнал событий</h1></header>
   <div className="journal-filters">
    <label className="journal-search"><Icon name="search" size={16}/><input type="search" aria-label="Найти инцидент в журнале" placeholder="Найти инцидент" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/></label>
-   <label className="journal-select"><select aria-label="Тип события" value={type} onChange={e=>{setType(e.target.value);setPage(1);}}><option value="">Тип события / Все типы</option>{JOURNAL_TYPES.map(option=><option key={option.id} value={option.id}>Тип события / {option.label}</option>)}</select><Icon name="down" size={16}/></label>
-   <label className="journal-select"><select aria-label="Период событий" value={period} onChange={e=>{setPeriod(e.target.value);setPage(1);}}>{JOURNAL_PERIODS.map(option=><option key={option.id} value={option.id}>Период / {option.label}</option>)}</select><Icon name="down" size={16}/></label>
+   <FilterSelect label="Тип события" value={type} options={[{id:'',label:'Все типы'},...JOURNAL_TYPES]} onChange={value=>{setType(value);setPage(1);}}/>
+   <FilterSelect label="Период" value={period} options={JOURNAL_PERIODS} onChange={value=>{setPeriod(value);setPage(1);}}/>
   </div>
   {history.failed&&<div className="journal-load-error" role="status"><span>Не удалось загрузить историю полностью. Доступные события сохранены.</span><button className="text-button" onClick={history.retry}>Повторить</button></div>}
   <div className="journal-table-zone"><table className="journal-table" aria-label="Журнал событий"><colgroup><col className="journal-icon-col"/><col className="journal-id-col"/><col className="journal-type-col"/><col className="journal-time-col"/><col/></colgroup>
@@ -29,9 +30,9 @@ export function EventsJournal({events,now,loading,connected,onOpen}:{events:Chan
    <tbody>{result.items.map(event=>{
     const presentation=journalEventType(event),at=timestamp(event.at);
     return <tr key={event.eventId} tabIndex={0} aria-label={`Открыть инцидент ${event.incidentId}, ${presentation.label}`} onClick={()=>onOpen(event.sysId)} onKeyDown={e=>{if(e.target!==e.currentTarget)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();onOpen(event.sysId);}}}>
-     <td className="journal-event-icon"><span className={`journal-symbol journal-symbol-${presentation.id}`}><Icon name={presentation.icon} size={20}/></span></td>
+     <td className="journal-event-icon"><span className={`journal-symbol journal-symbol-${presentation.id} journal-tone-${presentation.tone}`}><Icon name={presentation.icon} size={20}/></span></td>
      <td><a className="journal-incident-id" href={`#incident/${encodeURIComponent(event.sysId)}?from=events`} onClick={e=>{e.preventDefault();e.stopPropagation();onOpen(event.sysId);}}>{event.incidentId}</a></td>
-     <td><span className="journal-type-tag" title={event.types.map(id=>JOURNAL_TYPES.find(t=>t.id===id)?.label??(id==='assigned'?'Назначение команды':'Обновление данных')).join(' · ')}>{presentation.label}</span></td>
+     <td><span className={`journal-type-tag journal-tone-${presentation.tone}`} title={event.types.map(id=>JOURNAL_TYPES.find(t=>t.id===id)?.label??(id==='assigned'?'Назначение команды':'Обновление данных')).join(' · ')}>{presentation.label}</span></td>
      <td><time className="journal-time" dateTime={at===null?undefined:new Date(at).toISOString()}><strong>{at===null?'--:--:--':timeFormat.format(at)}</strong><span>{at===null?'Дата не указана':dayFormat.format(at)}</span></time></td>
      <td className="journal-change">{journalDescription(event)}</td>
     </tr>;
