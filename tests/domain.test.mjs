@@ -12,7 +12,15 @@ test('Resolved is restored, Closed is final, Research still needs attention',()=
 test('Research is excluded from active priorities but can remain on coordinators',()=>{for(const priorityId of [3,4]){const value={...item(),stateEnum:'Research',stateId:20,priorityId};assert.equal(belongs(value,'research'),true);assert.equal(belongs(value,'high'),false);assert.equal(belongs(value,'critical'),false);assert.equal(belongs(value,'coordinators'),true);}});
 test('missing deadline and sentinel time do not create false SLA',()=>{assert.equal(timestamp('0001-01-01T00:00:00'),null);assert.equal(slaKind({...item(),deadline:null}),'unknown');assert.equal(slaKind({...item(),stateEnum:'Resolved',deadline:'2000-01-01T00:00:00Z'}),'restored');assert.equal(slaKind({...item(),stateEnum:'Research'}),'research');});
 test('deadline boundary and warning threshold are deterministic',()=>{const value={...item(),deadline:new Date(60_000).toISOString()};assert.equal(slaKind(value,60_000),'late');assert.equal(slaKind(value,59_000),'soon');assert.equal(slaKind(value,-2_000_000),'normal');});
-test('unknown state remains visible without breaking all records',()=>{assert.equal(stateOf({...item(),stateEnum:'FutureState'}),'Unknown');assert.equal(stateOf({...item(),stateEnum:'constructor'}),'Unknown');});
+test('known dashboard state wins and raw source status follows Rust precedence', () => {
+ assert.equal(stateOf({...item(), stateEnum:'Assigned', stateId:0, dashboard:{normalizedState:'Closed'}}), 'Closed');
+ assert.equal(stateOf({...item(), dashboard:{normalizedState:'Unknown'}}), 'Unknown');
+ assert.equal(stateOf({...item(), stateEnum:' rEsEaRcH ', stateId:0, dashboard:{normalizedState:'invalid'}}), 'Research');
+ assert.equal(stateOf({...item(), stateEnum:'FutureState', stateId:10}), 'Closed');
+ assert.equal(stateOf({...item(), stateEnum:'Unknown', stateId:20}), 'Research');
+ assert.equal(stateOf({...item(), stateEnum:'FutureState', stateId:99}), 'Unknown');
+ assert.equal(stateOf({...item(), stateEnum:'constructor', stateId:null}), 'Unknown');
+});
 test('duplicate IDs are rejected before replacing a snapshot',()=>{assert.throws(()=>parseIncidents([item(),item()]),/Повторяющийся/);});
 test('status transitions distinguish resolving, closing and reopening',()=>{const current=item();assert.ok(eventTypes(current,{...current,stateEnum:'Resolved'}).includes('resolved'));assert.ok(eventTypes({...current,stateEnum:'Resolved'},{...current,stateEnum:'Closed'}).includes('closed'));assert.ok(eventTypes({...current,stateEnum:'Resolved'},{...current,stateEnum:'WorkInProgress'}).includes('reopened'));assert.deepEqual(eventTypes(current,null),['removed']);});
 test('assistant does not invent successful resolution or probability',()=>{const value={...item(),solution:'Исправление не помогло'};const analysis=analyze(value,[value],1);assert.equal(analysis.provider,'rules');assert.ok(analysis.missing.some(t=>t.includes('недостаточно')));assert.ok(!JSON.stringify(analysis).includes('91%'));assert.ok(!analysis.attention.some(t=>t.includes('Проблема устранена')));});

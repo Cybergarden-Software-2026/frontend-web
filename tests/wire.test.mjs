@@ -51,6 +51,22 @@ test('backend scalar and nullable fields are safe for queue, alerts, event histo
   assert.equal(normalizeIncident({ ...raw, stateEnum: 'Research', stateId: null }).stateId, null);
 });
 
+test('wire keeps raw status text and accepts source decimal codes without coercing invalid formats', () => {
+  const original = { ...raw, stateEnum: 'CloseD', state: 'Статус выгрузки', stateId: ' ٢ ',
+    dashboard: { ...raw.dashboard, normalizedState: 'Research' } };
+  const incident = normalizeIncident(original);
+  assert.equal(stateOf(incident), 'Research');
+  assert.equal(incident.stateEnum, 'CloseD');
+  assert.equal(incident.state, 'Статус выгрузки');
+  assert.equal(incident.stateId, 2);
+
+  for (const [source, expected] of [['020', 'Research'], ['𝟙𝟘', 'Closed'], [0, 'Assigned'],
+    ['2e0', 'Unknown'], ['0xA', 'Unknown'], ['10.0', 'Unknown'], [false, 'Unknown']]) {
+    const historical = normalizeIncident({ ...raw, dashboard: null, stateEnum: 'FutureState', stateId: source });
+    assert.equal(stateOf(historical), expected, String(source));
+  }
+});
+
 test('web HTTP snapshot, queue, and keyless assignment use the same incident normalization', async t => {
   const calls = [];
   const conflict = 'Данные изменились. Проверьте актуальную команду и повторите назначение.';

@@ -36,6 +36,25 @@ test('new and removed records, state changes and event icons preserve source fac
  const research=event(5,{types:['research'],fields:['stateEnum']});assert.equal(journalEventType(research).icon,'search');
  assert.equal(journalEventType(event(6,{types:['resolved'],fields:[]})).icon,'circleCheck');
 });
+test('status history distinguishes a state transition, a renamed label and a code-only correction', () => {
+ const first = { stateId: 0, stateEnum: 'legacy', state: 'Статус из выгрузки', assignedGroupName: 'Команда A' };
+ const update = event(1, { fields: ['stateId', 'assignedGroupName', 'deadline'], previous: first,
+  current: { ...first, stateId: 10, assignedGroupName: 'Команда B' } });
+ const description = journalDescription(update);
+ assert.match(description, /Команда: «Команда A» → «Команда B»/);
+ assert.match(description, /Статус: Назначен → Закрыт/);
+ assert.match(description, /Обновлён дедлайн решения/);
+ assert.equal(selectJournal([update], { type: 'state', search: 'закрыт' }, now).total, 1);
+
+ const before = { ...first, stateEnum: 'assigned', state: 'На регистрации' };
+ const renamed = event(2, { types: ['changed'], fields: ['state'], previous: before,
+  current: { ...before, state: 'Назначен' } });
+ assert.equal(journalDescription(renamed), 'Название статуса: На регистрации → Назначен.');
+ const corrected = event(3, { types: ['changed'], fields: ['stateId'], previous: before,
+  current: { ...before, stateId: 2 } });
+ assert.equal(journalDescription(corrected), 'Код статуса: 0 → 2.');
+});
+
 test('SSE insertions and deletions recalculate pagination without forcing another filter or page',()=>{
  const rows=Array.from({length:9},(_,i)=>event(i+1));
  assert.equal(selectJournal(rows,{type:'team',page:2},now).items.length,1);
@@ -50,13 +69,37 @@ test('invalid dates never crash filters or all-time history',()=>{
 });
 test('history API keeps the cursor opaque and normalizes archived records like SSE',async t=>{
  const { api }=await import('../src/data/api.ts');
- const cursor='987654321098765432',controller=new AbortController();let requested;
+ const cursor='987654321098765432',after='987654321098764901',controller=new AbortController();let requested;
  t.mock.method(globalThis,'fetch',async(url,init)=>{
   requested={url,signal:init.signal,authorization:init.headers.get('Authorization')};
   return Response.json({items:[{...event(1),header:null,current:{sysId:'179413934903718013',id:'INC-1',assignedGroupName:null,header:null,priorityId:2,stateId:20,stateEnum:'Research'}}],nextCursor:cursor});
  });
- const result=await api.events(cursor,controller.signal);
+ const result=await api.events(cursor,controller.signal,after);
  const params=new URL(requested.url,'https://local.test').searchParams;
- assert.equal(params.get('beforeId'),cursor);assert.equal(params.get('limit'),'200');assert.equal(requested.signal,controller.signal);assert.equal(requested.authorization,null);
+ assert.equal(params.get('beforeId'),cursor);assert.equal(params.get('afterId'),after);assert.equal(params.get('limit'),'200');assert.equal(requested.signal,controller.signal);assert.equal(requested.authorization,null);
  assert.equal(result.nextCursor,cursor);assert.equal(result.items[0].header,'');assert.equal(result.items[0].current.sysId,'179413934903718013');assert.equal(result.items[0].current.assignedGroupName,'');
+});
+
+test('live windows retain continuity and request only the interval lost from a full snapshot', async()=>{
+ const {eventWindow}=await import('../src/data/useEventHistory.ts');
+ const live=(head,size=200)=>Array.from({length:size},(_,index)=>({eventId:head-index}));
+ let covered=200;
+ for(let head=201;head<=450;head++){
+  const window=eventWindow(live(head),covered);
+  assert.equal(window.bounds,null);
+  covered=window.newest;
+ }
+ assert.equal(covered,450);
+ assert.deepEqual(eventWindow(live(450),200),{
+  newest:450,bounds:{afterId:'200',beforeId:'251'},
+ });
+ // A reconnect can move the live window again while the first gap is fetched.
+ assert.deepEqual(eventWindow(live(700),450),{
+  newest:700,bounds:{afterId:'450',beforeId:'501'},
+ });
+ assert.deepEqual(eventWindow(live(450),0),{
+  newest:450,bounds:{afterId:'0',beforeId:'251'},
+ });
+ assert.deepEqual(eventWindow([],0),{newest:0,bounds:null});
+ assert.deepEqual(eventWindow(live(8,8),450),{newest:450,bounds:null});
 });
