@@ -1,7 +1,7 @@
 import type { ChangeEvent, Incident, Snapshot } from '../domain/incidents';
 
 type RawIncident = Record<string, unknown>;
-type WireEvent = Omit<ChangeEvent, 'header' | 'current' | 'previous'> & {
+export type WireEvent = Omit<ChangeEvent, 'header' | 'current' | 'previous'> & {
   header: string | null;
   current: RawIncident | null;
   previous: RawIncident | null;
@@ -59,15 +59,10 @@ export function normalizeIncident(raw: RawIncident): Incident {
   };
 }
 
+export function normalizeEvent(event:WireEvent):ChangeEvent {
+ return {...event,header:text(event.header),previous:event.previous&&normalizeIncident(event.previous),current:event.current&&normalizeIncident(event.current)};
+}
+
 export function normalizeSnapshot(snapshot: WireSnapshot): Snapshot {
-  return {
-    ...snapshot,
-    items: snapshot.items.map(normalizeIncident),
-    events: snapshot.events.map(event => ({
-      ...event,
-      header: text(event.header),
-      previous: event.previous && normalizeIncident(event.previous),
-      current: event.current && normalizeIncident(event.current),
-    })),
-  };
+  return {...snapshot,items:snapshot.items.map(normalizeIncident),events:snapshot.events.map(normalizeEvent)};
 }

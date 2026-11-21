@@ -1,6 +1,6 @@
 import { useEffect,useLayoutEffect,useState,useRef,useMemo } from 'react';
-import type { ChangeEvent,Incident } from '../domain/incidents';
-import { counts,EVENT_LABELS,describeEvent,COORDINATOR_TEAM } from '../domain/incidents';
+import type { Incident } from '../domain/incidents';
+import { counts,COORDINATOR_TEAM } from '../domain/incidents';
 import { useIncidents } from '../data/useIncidents';
 import { useAlertSignal } from '../data/useAlertSignal';
 import { api } from '../data/api';
@@ -12,6 +12,7 @@ import { ProblemClusters } from '../features/ProblemClusters';
 import { Team,Dialog,Empty,dateTime } from '../components/ui';
 import { Detail } from '../features/Detail';
 import { AlertHeader } from '../features/AlertHeader';
+import { EventsJournal } from '../features/EventsJournal';
 import { readRoute,incidentHash,backLabels } from './routes';
 import type { Page } from './routes';
 import { Analytics } from '../features/Analytics';
@@ -29,7 +30,7 @@ export function App() {
  const {page,incidentId:detailId}=route;
  const workspaceRef=useRef<HTMLDivElement>(null),returnScroll=useRef(0),originFocus=useRef<HTMLElement|null>(null),previousDetail=useRef<string|null>(null);
  const [demoOpen,setDemoOpen]=useState(false),[busy,setBusy]=useState<string|null>(null),[actionError,setActionError]=useState<string|null>(null);
- const [now,setNow]=useState(Date.now()),[eventSearch,setEventSearch]=useState(''),[teamSearch,setTeamSearch]=useState(''),[eventType,setEventType]=useState('');
+ const [now,setNow]=useState(Date.now()),[teamSearch,setTeamSearch]=useState('');
  const [lastRead,setLastRead]=useState(()=>{try{return Number(localStorage.getItem(readKey)??0);}catch{return 0;}});
  const uploadRef=useRef<HTMLInputElement>(null);
  const [assignId,setAssignId]=useState<string|null>(null),[teamContext,setTeamContext]=useState<{name:string;token:number}|null>(null);
@@ -82,7 +83,6 @@ export function App() {
  }
  async function simulate(action:string){setBusy(action);setActionError(null);try{data.accept(await api.simulate(action));if(action!=='reset')setDemoOpen(false);}catch(e){setActionError(e instanceof Error?e.message:'Не удалось выполнить сценарий');}finally{setBusy(null);}}
  async function importFile(file:File){setBusy('import');setActionError(null);try{const value=JSON.parse(await file.text());data.accept(await api.import(value));}catch(e){setActionError(e instanceof Error?e.message:'Ошибка импорта');}finally{setBusy(null);if(uploadRef.current)uploadRef.current.value='';}}
- function markRead(){setLastRead(latest);try{localStorage.setItem(readKey,String(latest));}catch{}}
  return <div className={`app page-${page} ${detailId?'page-incident-detail':''}`}><a className="skip-link" href="#main" onClick={e=>{e.preventDefault();document.getElementById('main')?.focus();}}>К содержанию</a><aside className="sidebar"><a className="brand" href="#incidents"><img src="/mark.svg" width="38" height="38" alt=""/><span>Under<span className="brand-accent">Ctrl</span><small>Координация IT</small></span></a><nav aria-label="Основное меню"><p className="nav-caption">РАБОЧАЯ ОБЛАСТЬ</p>{pages.map(link=><a key={link.id} className={`nav-item ${page===link.id?'selected':''}`} aria-current={page===link.id?'page':undefined} href={'#'+link.id}><Icon name={link.icon}/><span>{link.label}</span>{link.id==='events'&&unread>0&&<span className="nav-count">{unread}</span>}{link.id==='problems'&&clusters.length>0&&<span className="nav-count">{clusters.length}</span>}</a>)}</nav><div className="sidebar-bottom"><div className="sidebar-tools">{!DEMO&&<button className="icon-button" aria-label="Выйти из аккаунта" title="Выйти" onClick={()=>signOut()}><Icon name="logout" size={15}/></button>}{DEMO&&<button className="text-button" onClick={()=>setDemoOpen(true)}><Icon name="flask" size={13}/>Симуляция</button>}<button className="icon-button" aria-label="Обновить данные" title={connected?'Соединение активно':'Нет соединения'} onClick={()=>void refresh()}><Icon name="refresh" size={15}/></button><a className="icon-button" href="#settings" aria-label="Настройки"><Icon name="settings" size={15}/></a></div><div className="sidebar-profile"><span className="avatar">КС</span><span><strong>Дежурная смена</strong><small>Координатор</small></span></div></div></aside>
  <div className="workspace" ref={workspaceRef}>
  <main className="main" id="main" tabIndex={-1}>{(!online||!connected)&&<ConnectionNotice online={online} snapshot={snapshot} loading={loading} onRetry={refresh}/>}{snapshot?.source.error&&<div className="notice notice-warning" role="alert"><Icon name="alert"/><div><strong>Источник данных не обновляется</strong><p>{snapshot.source.error}. Предыдущий корректный снимок сохранён.</p></div></div>}{actionError&&<div className="notice notice-warning" role="alert"><Icon name="alert"/><p>{actionError}</p><button className="icon-button" aria-label="Скрыть сообщение" onClick={()=>setActionError(null)}><Icon name="close"/></button></div>}
@@ -90,7 +90,7 @@ export function App() {
  <div className="screen-content" hidden={Boolean(detailId)}>
  {page==='incidents'&&headerPreview!==null&&<div className="header-preview-notice" role="status"><span>Тест хедера · данные очереди не меняются</span><button className="text-button" onClick={()=>testHeader('live')}>Вернуться к данным сервера</button></div>}
  {page==='incidents'&&<IncidentDashboard snapshot={snapshot} now={clock} connected={connected} loading={loading} onOpen={openIncident} onAssign={setAssignId} teamContext={teamContext}/>}
- {page==='events'&&<><PageHeading eyebrow="ИСТОРИЯ ИЗМЕНЕНИЙ" title="События" text="Всё, что изменилось в текущей очереди" action={<button className="button secondary" onClick={markRead} disabled={!unread}><Icon name="check" size={17}/>Отметить прочитанным</button>}/><section className="surface full-panel"><div className="event-toolbar"><label className="search-field"><Icon name="search"/><input type="search" placeholder="Номер или заголовок инцидента" value={eventSearch} onChange={e=>setEventSearch(e.target.value)}/></label><select aria-label="Тип события" value={eventType} onChange={e=>setEventType(e.target.value)}><option value="">Все события</option>{Object.entries(EVENT_LABELS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select><span className="small-tag tone-purple">{unread} новых</span></div>{events.filter(e=>(!eventType||e.types.includes(eventType))&&(!eventSearch||[e.incidentId,e.header].join(' ').toLowerCase().includes(eventSearch.toLowerCase()))).map(event=><div key={event.eventId} className={event.eventId>lastRead?'unread-event':''}><EventRow event={event} expanded onClick={()=>openIncident(event.sysId)}/></div>)}{!events.length&&<Empty title="Изменений пока нет" icon="pulse">Журнал хранит события с момента подключения источника. Измените JSON или запустите демонстрационный сценарий.</Empty>}</section></>}
+ {page==='events'&&<EventsJournal events={events} now={clock} loading={loading} connected={connected} onOpen={openIncident}/>}
  {page==='teams'&&<><PageHeading eyebrow="СПРАВОЧНИК ИЗ ВЫГРУЗКИ" title="Команды" text="Ответственные подразделения и их текущая нагрузка" action={<span className="small-tag tone-purple">{teams.length} команд</span>}/><label className="search-field team-search"><Icon name="search"/><input type="search" placeholder="Найти команду" value={teamSearch} onChange={e=>setTeamSearch(e.target.value)}/></label><div className="team-grid">{teams.filter(name=>name.toLocaleLowerCase('ru').includes(teamSearch.toLocaleLowerCase('ru'))).map(name=>{const own=items.filter(i=>i.assignedGroupName===name),stats=counts(own,clock);return <button className="surface team-card" key={name} onClick={()=>selectTeam(name)}><Team name={name}/><div className="team-card-stats"><div><strong>{stats.all}</strong><small>Всего</small></div><div><strong>{stats.attention}</strong><small>Во внимании</small></div><div><strong className={stats.overdue?'text-danger':''}>{stats.overdue}</strong><small>Срок истёк</small></div></div><div className="team-card-footer"><span>{new Set(own.map(i=>i.assignedEmployeeLogin).filter(Boolean)).size} исполнителей в выгрузке</span><span>Открыть очередь</span></div></button>;})}</div>{!teams.filter(name=>name.toLowerCase().includes(teamSearch.toLowerCase())).length&&<Empty title="Команда не найдена">Измените поисковый запрос.</Empty>}</>}
  {page==='problems'&&<ProblemClusters clusters={clusters} items={items} onOpen={openIncident}/>}
  {page==='analytics'&&<Analytics items={items} now={clock} onTeam={selectTeam}/>}
@@ -104,7 +104,3 @@ export function App() {
  </div>;
 }
 function PageHeading({eyebrow,title,text,action}:{eyebrow:string;title:string;text:string;action?:React.ReactNode}) {return <header className="page-heading secondary-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{text}</p></div>{action}</header>;}
-function EventRow({event,onClick,expanded=false}:{event:ChangeEvent;onClick:()=>void;expanded?:boolean}) {
- const tone=event.types.includes('critical')?'danger':event.types.some(t=>['resolved','closed'].includes(t))?'green':'purple';
- return <button className={`event-row ${expanded?'event-expanded':''}`} onClick={onClick}><span className={`event-icon tone-${tone}`}><Icon name={tone==='green'?'circleCheck':tone==='danger'?'alert':'pulse'} size={16}/></span><span className="event-body"><strong>{EVENT_LABELS[event.types[0]]??'Обновление'}</strong><span>{event.incidentId}</span><p>{event.header}</p>{expanded&&<p className="event-diff">{describeEvent(event)}</p>}<small>{dateTime(event.at)}</small></span></button>;
-}

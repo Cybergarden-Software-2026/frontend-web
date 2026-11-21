@@ -1,7 +1,7 @@
 import type { QueuePage, QueueQuery } from '../domain/operations';
 import { coordinatorAuth, signOut } from './coordinatorSession.ts';
 import type { Analysis } from '../domain/incidents';
-import { normalizeIncident, normalizeSnapshot, type WireSnapshot } from './wire.ts';
+import { normalizeIncident, normalizeSnapshot, normalizeEvent, type WireEvent, type WireSnapshot } from './wire.ts';
 
 export const API_BASE = (import.meta.env?.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
 
@@ -38,6 +38,12 @@ export const api = {
     }
     const page = await request<QueuePage>('/incidents?' + params);
     return { ...page, items: page.items.map(normalizeIncident) };
+  },
+  async events(beforeId?:string,signal?:AbortSignal) {
+    const params=new URLSearchParams({limit:'200'});
+    if(beforeId)params.set('beforeId',beforeId);
+    const page=await request<{items:WireEvent[];nextCursor?:string|null}>('/events?'+params,{signal});
+    return {items:page.items.map(normalizeEvent),nextCursor:page.nextCursor??null};
   },
   teams: () => request<{ items: { name: string; activeCount: number }[] }>('/teams'),
   async assign(id: string, team: string, expectedRevision: number, token?: string) {
