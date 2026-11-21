@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import type { Incident } from '../domain/incidents';
 import { headerAlerts } from '../domain/operations';
 import { Icon } from '../components/Icon';
-import { Sla } from '../components/ui';
+import { detailSla } from './detailPresentation';
 
 // Positions follow the light repeating pattern in the supplied header export.
 const decorations=[
@@ -14,10 +14,9 @@ const decorations=[
  ['logo',76.6,114,42,15],['key',81,15,49,13],['logo',87.4,7,38,-14],['key',91.5,102,64,-14],
 ] as const;
 function MtsPattern(){return <svg viewBox="0 0 125 125" fill="currentColor"><text x="1" y="52">М</text><text x="79" y="52">Т</text><text x="79" y="116">С</text></svg>;}
-function waitingTime(since:number|null,now:number){
- if(since===null)return 'Время ожидания не указано';
- const seconds=Math.max(0,Math.floor((now-since)/1000));
- return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')} в ожидании`;
+function HeaderDeadline({item,now}:{item:Incident;now:number}){
+ const {kind,value,label}=detailSla(item,now);
+ return <span className={`sla sla-${kind}`} title={label}><strong>{value}</strong><small>{label}</small></span>;
 }
 
 export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStatus}:{signalSequence:number;audioStatus:string;items:Incident[];now:number;onOpen:(id:string)=>void;onJournal:()=>void;unread:number}) {
@@ -48,7 +47,7 @@ export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStat
      <button className={`header-alert spotlight-card spotlight-card-${alert.tone}`} onClick={()=>onOpen(alert.item.sysId)} title={`${alert.item.id}: ${alert.reason}`}>
       <span className="spotlight-card-label"><Icon name={alert.tone==='critical'?'alert':'clock'} size={13}/>{alert.kind==='critical'?'Критический инцидент':alert.kind==='deadline'?alert.reason:'Ожидает команды'}</span>
       <span className="header-alert-title">{alert.item.header}</span>
-      <span className="spotlight-card-footer">{alert.kind!=='waiting'?<Sla item={alert.item} now={now}/>:<strong className="routing-wait-time">{waitingTime(alert.waitingSince,now)}</strong>}<span className="spotlight-open">Открыть</span></span>
+      <span className="spotlight-card-footer"><HeaderDeadline item={alert.item} now={now}/><span className="spotlight-open">Открыть</span></span>
      </button>
     </div>)}</div>
     <div className="spotlight-pagination"><span>{currentPage*capacity+1}–{Math.min((currentPage+1)*capacity,alerts.length)} из {alerts.length}</span>{pageCount>1&&<div className="spotlight-navigation"><button className="icon-button" aria-label="Предыдущие важные инциденты" onClick={()=>turn(-1)}><Icon name="left" size={17}/></button><button className="icon-button" aria-label="Следующие важные инциденты" onClick={()=>turn(1)}><Icon name="right" size={17}/></button></div>}</div>
