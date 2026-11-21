@@ -7,15 +7,16 @@ import { api } from '../data/api';
 import { Icon } from '../components/Icon';
 import { Status,Team,Empty } from '../components/ui';
 import { IncidentArrivalTracker } from '../domain/alertSignals';
-import { timestamp,stateOf } from '../domain/incidents';
+import { timestamp } from '../domain/incidents';
+import { displaySlaKind } from '../domain/deadlineDisplay';
 
 export function QueueSla({item,now}:{item:Incident;now:number}) {
- const state=stateOf(item),deadline=timestamp(item.deadline);
- if(state==='Resolved'||state==='Closed')return <span className="queue-sla stopped"><strong>00:00:00</strong><small>{state==='Resolved'?'Устранён':'Остановлен'}</small></span>;
+ const kind=displaySlaKind(item,now),deadline=timestamp(item.deadline);
+ if(kind==='restored'||kind==='closed')return <span className="queue-sla stopped"><strong>00:00:00</strong><small>{kind==='restored'?'Устранён':'Остановлен'}</small></span>;
  if(deadline===null)return <span className="queue-sla"><strong>--:--:--</strong><small>Срок не указан</small></span>;
  const delta=deadline-now,seconds=Math.floor(Math.abs(delta)/1000),hours=Math.floor(seconds/3600);
  const value=[hours,Math.floor(seconds%3600/60),seconds%60].map(n=>String(n).padStart(2,'0')).join(':');
- return <span className={`queue-sla ${delta<=0?'late':delta<=30*60_000?'soon':'normal'}`}><strong>{delta<=0?'− ':''}{value}</strong><small>{delta<=0?'Просрочен':delta<=30*60_000?'Истекает':'Осталось'}</small></span>;
+ return <span className={`queue-sla ${kind}`}><strong>{delta<=0?'− ':''}{value}</strong><small>{kind==='late'?'Просрочен':kind==='soon'?'Осталось <30%':'Осталось'}</small></span>;
 }
 
 export function IncidentDashboard({snapshot,now,connected,loading,onOpen,onAssign,teamContext}:{snapshot:Snapshot|null;now:number;connected:boolean;loading:boolean;onOpen:(id:string)=>void;onAssign:(id:string)=>void;teamContext:{name:string;token:number}|null}) {

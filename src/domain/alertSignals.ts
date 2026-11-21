@@ -5,7 +5,7 @@ export class AlertSignalTracker {
  private previous:Map<string,string>|null=null;
  update(items:Incident[],now:number,ready=true):boolean {
   if(!ready)return false;
-  const next=new Map(headerAlerts(items,now).map(alert=>[alert.item.sysId,JSON.stringify([alert.key,alert.item.assignedGroupName,alert.item.lastAssignmentToTeamDateTime,alert.item.deadline])]));
+  const next=new Map(headerAlerts(items,now).filter(alert=>alert.kind!=='deadline').map(alert=>[alert.item.sysId,JSON.stringify([alert.key,alert.item.assignedGroupName,alert.item.lastAssignmentToTeamDateTime,alert.item.deadline])]));
   const changed=this.previous!==null&&[...next].some(([id,value])=>this.previous!.get(id)!==value);
   this.previous=next;
   return changed;

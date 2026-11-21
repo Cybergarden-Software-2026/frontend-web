@@ -86,3 +86,10 @@ test('native audio queues before interaction and retries a blocked alert on the 
 test('cancelled native audio does not play a stale alert',async()=>{
  const media=fakeMedia();await media.bell.ring();media.bell.cancelPending();await media.bell.activate();assert.deepEqual(media.plays,[0]);
 });
+
+test('crossing the deadline threshold alone is silent; becoming critical still rings',()=>{
+ const record={...item,priorityId:2,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now+3600_000).toISOString(),submitDate:new Date(now-70*60_000).toISOString(),deadline:new Date(now+30*60_000).toISOString()},tracker=new AlertSignalTracker();
+ tracker.update([record],now);assert.equal(tracker.update([record],now+1),false);
+ assert.equal(tracker.update([{...record,deadline:new Date(now-1000).toISOString()}],now),false);
+ assert.equal(tracker.update([{...record,priorityId:4}],now),true);
+});

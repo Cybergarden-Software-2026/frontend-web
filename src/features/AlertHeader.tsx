@@ -32,28 +32,29 @@ export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStat
  useEffect(()=>setPage(0),[alertIds,capacity]);
  useEffect(()=>{if(pageCount<2||paused||reduced)return;const timer=setInterval(()=>{if(document.visibilityState==='visible')setPage(value=>(value+1)%pageCount);},10000);return()=>clearInterval(timer);},[pageCount,paused,reduced,alertIds,currentPage]);
  const criticalCount=alerts.filter(a=>a.tone==='critical').length;
+ const deadlineCount=alerts.filter(a=>a.kind==='deadline').length;
  const tone=criticalCount?'critical':'waiting';
  const visible=alerts.slice(currentPage*capacity,(currentPage+1)*capacity);
  function turn(direction:number){setPage((currentPage+direction+pageCount)%pageCount);}
- return <header className={`incident-hero wave-hero ${alerts.length?`has-routing-alerts spotlight-hero spotlight-${tone}`:''}`} aria-label="Инциденты без команды решения">
+ return <header className={`incident-hero wave-hero ${alerts.length?`has-routing-alerts spotlight-hero spotlight-${tone}`:''}`} aria-label="Важные инциденты без команды решения">
   <div className="hero-keycaps" aria-hidden="true">{Array.from({length:3},(_,row)=>Array.from({length:12},(_,col)=>{const index=row*12+col,kind=(row+col)%3===0?"logo":"key",size=[34,46,39,52][index%4];return <span key={`fill-${index}`} className={`hero-pattern-item hero-pattern-${kind}`} style={{"--pattern-x":`${col*8.8+row*2}%`,"--pattern-y":`${row*65-12+(col%2)*17}px`,"--pattern-size":`${size}px`,"--pattern-rotation":`${index%2?-13:12}deg`} as CSSProperties}>{kind==="logo"?<MtsPattern/>:<span>{["+","{ }","Ctrl","↵"][index%4]}</span>}</span>;}))}{decorations.map(([kind,x,y,size,rotation],index)=><span key={index} className={`hero-pattern-item hero-pattern-${kind}`} style={{'--pattern-x':`${x}%`,'--pattern-y':`${y}px`,'--pattern-size':`${size}px`,'--pattern-rotation':`${rotation}deg`} as CSSProperties}>{kind==='logo'?<MtsPattern/>:<span>{['+','{ }','Ctrl','↵'][index%4]}</span>}</span>)}</div>
   {alerts.length>0?<>
    <div className="spotlight-summary">
     <div className="calm-orbit spotlight-orbit" aria-hidden="true"><span className="calm-ring calm-ring-one"/><span className="calm-ring calm-ring-two"/><span className="calm-core"><Icon name={criticalCount?'alert':'clock'} size={26}/></span><svg viewBox="0 0 120 46"><path d="M0 23h30l8-12 10 24 10-17 6 5h56"/></svg></div>
-    <div className="spotlight-summary-copy"><span className="spotlight-eyebrow">МТС · ЦЕНТР КООРДИНАЦИИ</span><strong>{criticalCount?'Нужна ваша реакция':'Подключите команду'}</strong></div>
+    <div className="spotlight-summary-copy"><span className="spotlight-eyebrow">МТС · ЦЕНТР КООРДИНАЦИИ</span><strong>{criticalCount||deadlineCount?'Нужна ваша реакция':'Подключите команду'}</strong></div>
    </div>
    <div className="spotlight-deck" ref={deck} onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocusCapture={()=>setPaused(true)} onBlurCapture={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setPaused(false);}}>
-    <div key={`${currentPage}-${alertIds}`} className="spotlight-cards" role="list" aria-label="Важные инциденты без команды">{visible.map((alert,index)=><div key={alert.item.sysId} role="listitem" className="spotlight-card-slot" style={{'--card-delay':`${index*100}ms`} as CSSProperties}>
+    <div key={`${currentPage}-${alertIds}`} className="spotlight-cards" role="list" aria-label="Важные инциденты без команды решения">{visible.map((alert,index)=><div key={alert.item.sysId} role="listitem" className="spotlight-card-slot" style={{'--card-delay':`${index*100}ms`} as CSSProperties}>
      <button className={`header-alert spotlight-card spotlight-card-${alert.tone}`} onClick={()=>onOpen(alert.item.sysId)} title={`${alert.item.id}: ${alert.reason}`}>
-      <span className="spotlight-card-label"><Icon name={alert.tone==='critical'?'alert':'clock'} size={13}/>{alert.tone==='critical'?'Критический инцидент':'Ожидает команды'}</span>
+      <span className="spotlight-card-label"><Icon name={alert.tone==='critical'?'alert':'clock'} size={13}/>{alert.kind==='critical'?'Критический инцидент':alert.kind==='deadline'?alert.reason:'Ожидает команды'}</span>
       <span className="header-alert-title">{alert.item.header}</span>
-      <span className="spotlight-card-footer">{alert.tone==='critical'?<Sla item={alert.item} now={now}/>:<strong className="routing-wait-time">{waitingTime(alert.waitingSince,now)}</strong>}<span className="spotlight-open">Открыть</span></span>
+      <span className="spotlight-card-footer">{alert.kind!=='waiting'?<Sla item={alert.item} now={now}/>:<strong className="routing-wait-time">{waitingTime(alert.waitingSince,now)}</strong>}<span className="spotlight-open">Открыть</span></span>
      </button>
     </div>)}</div>
     <div className="spotlight-pagination"><span>{currentPage*capacity+1}–{Math.min((currentPage+1)*capacity,alerts.length)} из {alerts.length}</span>{pageCount>1&&<div className="spotlight-navigation"><button className="icon-button" aria-label="Предыдущие важные инциденты" onClick={()=>turn(-1)}><Icon name="left" size={17}/></button><button className="icon-button" aria-label="Следующие важные инциденты" onClick={()=>turn(1)}><Icon name="right" size={17}/></button></div>}</div>
    </div>
    {signalSequence>0&&<div className="header-signal wave-signal" data-signal-sequence={signalSequence} data-audio-state={audioStatus}>
-    <button key={signalSequence} className={`wave-bell-button ${signalSequence?'wave-bell-ringing':''}`} onClick={onJournal} aria-label={`Важные события: ${alerts.length} инцидентов без команды`} title="Открыть события">
+    <button key={signalSequence} className={`wave-bell-button ${signalSequence?'wave-bell-ringing':''}`} onClick={onJournal} aria-label={`Важные события: ${alerts.length} инцидентов требуют внимания`} title="Открыть события">
      <span className="wave-bell-icon"><svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M24 12a8 8 0 0 0-16 0c0 8-3 8-3 11h22c0-3-3-3-3-11Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M13 27a3 3 0 0 0 6 0M16 10v6m0 3h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span>
     </button>
    </div>}
