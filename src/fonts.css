@@ -1,0 +1,14 @@
+@font-face{font-family:"MTS Text";src:url("/fonts/MTSText-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"MTS Text";src:url("/fonts/MTSText-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"MTS Text";src:url("/fonts/MTSText-Bold.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"MTS Compact";src:url("/fonts/MTSCompact-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"MTS Compact";src:url("/fonts/MTSCompact-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"MTS Compact";src:url("/fonts/MTSCompact-Bold.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"MTS Wide";src:url("/fonts/MTSWide-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"MTS Wide";src:url("/fonts/MTSWide-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"MTS Wide";src:url("/fonts/MTSWide-Bold.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
+:root{--font:"MTS Text",sans-serif;--mono:"MTS Text",sans-serif;--font-display:"MTS Wide","MTS Text",sans-serif;font-family:var(--font);font-synthesis:none}
+body,button,input,select,textarea{font-family:var(--font)}
+.brand{font-family:"MTS Compact",sans-serif}
+.hero-pattern-logo>svg,.hero-mts-watermark{font-family:"MTS Compact",sans-serif}
+code,pre{font-family:var(--mono);font-variant-numeric:tabular-nums}

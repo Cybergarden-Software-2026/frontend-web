@@ -1,5 +1,9 @@
 import type { CSSProperties } from 'react';
 const glyphs: Record<string, string> = {
+ globe: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4.4" ry="9"/><path d="M3 12h18M4.7 6.8a19 19 0 0 0 14.6 0M4.7 17.2a19 19 0 0 1 14.6 0"/>',
+ eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+ eyeOff: '<path d="m3 3 18 18M10.6 5.1A12 12 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3.2 4M6.2 6.2A19 19 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.2-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+ logout: '<path d="M9 4H4v16h5m5-12 4 4-4 4m-5-4h13"/>',
  signal: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/>',
  sound: '<path d="M11 4 6 8H2v8h4l5 4V4Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
  mute: '<path d="M11 4 6 8H2v8h4l5 4V4Zm5 5 5 6m0-6-5 6"/>',

@@ -1,4 +1,5 @@
 import type { QueuePage, QueueQuery } from '../domain/operations';
+import { coordinatorAuth, signOut } from './coordinatorSession.ts';
 import type { Analysis } from '../domain/incidents';
 import { normalizeIncident, normalizeSnapshot, type WireSnapshot } from './wire.ts';
 
@@ -39,12 +40,21 @@ export const api = {
     return { ...page, items: page.items.map(normalizeIncident) };
   },
   teams: () => request<{ items: { name: string; activeCount: number }[] }>('/teams'),
-  assign: (id: string, team: string, expectedRevision: number, token?: string) =>
-    snapshotRequest(`/incidents/${encodeURIComponent(id)}/assignment`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: JSON.stringify({ team, expectedRevision }),
-    }),
+  async assign(id: string, team: string, expectedRevision: number, token?: string) {
+    const saved = coordinatorAuth.getSnapshot().session?.token;
+    const key = token ?? saved;
+    try {
+      return await snapshotRequest(`/incidents/${encodeURIComponent(id)}/assignment`, {
+        method: 'POST', headers: key ? { Authorization: `Bearer ${key}` } : undefined,
+        body: JSON.stringify({ team, expectedRevision }),
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401 && key && key === coordinatorAuth.getSnapshot().session?.token) {
+        signOut('Ключ больше не действует или указан неверно. Введите ключ координатора заново.');
+      }
+      throw error;
+    }
+  },
   analysis: (id: string) => request<Analysis>(`/incidents/${encodeURIComponent(id)}/analysis`),
   simulate: (action: string) => snapshotRequest('/demo', { method: 'POST', body: JSON.stringify({ action }) }),
   import: (items: unknown) => snapshotRequest('/incidents', { method: 'PUT', body: JSON.stringify(items) }),
