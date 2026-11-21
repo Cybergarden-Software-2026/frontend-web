@@ -1,0 +1,10 @@
+[Unit]
+Description=Deploy tested UnderCtrl frontend from GitHub main
+Wants=network-online.target
+Requires=docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/underctrl-frontend-deploy
+TimeoutStartSec=30min

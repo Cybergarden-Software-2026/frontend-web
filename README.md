@@ -32,4 +32,31 @@ curl --noproxy '*' -fsS http://127.0.0.1:8005/api/v1/snapshot
 curl --noproxy '*' -N --max-time 3 http://127.0.0.1:8005/api/v1/events/stream
 ```
 
-Публичный Nginx передаёт весь трафик сайта на `127.0.0.1:8005`. Контейнер фронтенда раздаёт статику, проксирует `/api/` на сервис `api:8080` в сети Compose и отключает буферизацию для SSE. На странице и у API один origin. Если проект Compose был переименован через `-p`, замените имя сети на `<имя-проекта>_default`. После запуска проверьте, что snapshot возвращает JSON, а в потоке до истечения таймаута приходит `event: snapshot`.
+Для внешнего входа направьте трафик нужного виртуального хоста Nginx на `127.0.0.1:8005`. Контейнер фронтенда раздаёт статику, проксирует `/api/` на сервис `api:8080` в сети Compose и отключает буферизацию для SSE. На странице и у API один origin. Если проект Compose был переименован через `-p`, замените имя сети на `<имя-проекта>_default`. После запуска проверьте, что snapshot возвращает JSON, а в потоке до истечения таймаута приходит `event: snapshot`.
+
+## Автоматическое обновление на vserver
+
+После push или слияния изменений в `main` таймер vserver проверяет GitHub примерно раз в минуту. Git использует настроенный deploy key пользователя `cyber`. Docker собирает и тестирует конкретный коммит `main`. Перед заменой контейнера скрипт проверяет HTML, JS, звук, JSON-снимок и SSE на временном локальном порту. Рабочий контейнер доступен на `127.0.0.1:8005`. При сбое после переключения скрипт возвращает предыдущий контейнер. На время замены возможна короткая пауза.
+
+Установите файлы из корня этого репозитория на vserver после запуска backend и слияния этой ветки в main:
+
+```bash
+sudo install -o root -g root -m 0755 deploy/deploy-frontend.sh /usr/local/sbin/underctrl-frontend-deploy
+sudo install -o root -g root -m 0644 deploy/underctrl-frontend-deploy.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start underctrl-frontend-deploy.service
+sudo systemctl enable --now underctrl-frontend-deploy.timer
+sudo journalctl -u underctrl-frontend-deploy.service -n 40 --no-pager
+```
+
+Сервис ожидает Git-клон в `/home/cyber/cybergarden/frontend-web` с настроенным `origin`. Если имя сети Compose отличается, задайте `UNDERCTRL_FRONTEND_NETWORK` в drop-in сервиса systemd.
+
+Внешний вход настраивается в существующем Nginx отдельно. Проверьте, что предназначенный для дашборда виртуальный хост направляет запросы на `127.0.0.1:8005`. Если снимки инцидентов требуют ограничения доступа, настройте аутентификацию на входе перед публикацией. Для SSE не буферизуйте поток и установите таймаут чтения больше интервала heartbeat.
+
+Перед ручным обновлением остановите таймер и текущий запуск сервиса:
+
+```bash
+sudo systemctl stop underctrl-frontend-deploy.timer underctrl-frontend-deploy.service
+```
+
+Проверки GitHub Actions запускаются для push и pull request в `main`.
