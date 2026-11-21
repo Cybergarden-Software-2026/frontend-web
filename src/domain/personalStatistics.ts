@@ -3,7 +3,7 @@ import { COORDINATION_KPI_MS,distribution } from './shiftStatistics.ts';
 export interface CoordinatorProfile { id:string; name:string; }
 export interface CoordinatorTransfer {
  id:string; coordinatorId:string; incidentId:string; title:string; team:string;
- priorityId:number; waitingStartedAt:number|null; assignedAt:number;
+ priorityId:number; waitingStartedAt:number|null; assignedAt:number; reassignmentMs?:number|null;
 }
 export interface PersonalStatistics {
  source:'demo'|'api'; coordinator:CoordinatorProfile; start:number; end:number;

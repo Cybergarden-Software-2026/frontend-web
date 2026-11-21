@@ -41,3 +41,44 @@ test('chart hover groups expose the correct full incident records without crossi
  assert.equal(chart.buckets[1].transfers[0].incidentId,'INC-B');assert.equal(chart.buckets[1].transfers[0].durationMs,null);
  assert.ok(chart.buckets.every(b=>b.count===b.transfers.length));assert.equal(chart.points.length,1);
 });
+
+test('reassignment plot tolerates old API responses and retains valid zero, short and multi-day intervals', async()=>{
+ const {personalChartData}=await import('../src/domain/personalCharts.ts');
+ const base={id:'old',coordinatorId:'shift',incidentId:'INC-1',title:'Инцидент',team:'Команда решения',priorityId:4,assignedAt:now-1000,waitingStartedAt:now-60_000};
+ const profile={id:'shift',name:'Смена координаторов'};
+ const previous=buildPersonalStatistics(profile,[base],now-3600_000,now,'api');
+ const oldChart=personalChartData(previous);
+ assert.equal(oldChart.points.length,1);
+ assert.deepEqual(oldChart.reassignments,[]);
+
+ const day=86_400_000;
+ const rows=[
+  {...base,id:'r-long',assignedAt:now-100,waitingStartedAt:null,reassignmentMs:13*day},
+  {...base,id:'r-zero',assignedAt:now-200,waitingStartedAt:null,reassignmentMs:0},
+  {...base,id:'r-short',assignedAt:now-300,waitingStartedAt:null,reassignmentMs:12},
+  {...base,id:'null',waitingStartedAt:null,reassignmentMs:null},
+  {...base,id:'negative',waitingStartedAt:null,reassignmentMs:-1},
+  {...base,id:'invalid',waitingStartedAt:null,reassignmentMs:NaN},
+ ];
+ const stats=buildPersonalStatistics(profile,[...rows,base],now-3600_000,now,'api');
+ const chart=personalChartData(stats);
+ assert.deepEqual(chart.reassignments.map(row=>[row.id,row.at,row.durationMs]),[
+  ['r-short',now-300,12],['r-zero',now-200,0],['r-long',now-100,13*day],
+ ]);
+ assert.deepEqual(chart.points,oldChart.points);
+ assert.equal(stats.kpiPercent,previous.kpiPercent);
+ assert.equal(stats.measured,previous.measured);
+});
+
+test('reassignment scale and accessible durations preserve separate units', async()=>{
+ const {reassignmentChartScale,reassignmentDurationLabel}=await import('../src/domain/personalCharts.ts');
+ const day=86_400_000;
+ assert.deepEqual(reassignmentChartScale(13*day),{unit:'дн.',unitMs:day,ticks:[0,4,8,12,16],maximumMs:16*day});
+ assert.equal(reassignmentChartScale(10*day).maximumMs,12*day);
+ assert.equal(reassignmentChartScale(12*3_600_000).unit,'ч');
+ assert.equal(reassignmentChartScale(32).unit,'мс');
+ assert.ok(reassignmentChartScale(0).maximumMs>0);
+ assert.equal(reassignmentDurationLabel(0),'0 с');
+ assert.equal(reassignmentDurationLabel(12),'12 мс');
+ assert.equal(reassignmentDurationLabel(13*day+2*3_600_000+61_250),'13 дн. 2 ч 1 мин 1 с 250 мс');
+});
