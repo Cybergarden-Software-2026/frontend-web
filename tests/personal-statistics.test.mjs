@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildPersonalStatistics} from '../src/domain/personalStatistics.ts';
-import {DEMO_COORDINATOR,createDemoCoordinatorHistory} from '../src/data/demoPersonalStatistics.ts';
+import {DEMO_COORDINATOR,createDemoCoordinatorHistory} from './fixtures/demoPersonalStatistics.mjs';
 const now=Date.parse('2026-11-21T12:00:00Z');
-test('test account has isolated synthetic activity, deterministic history and period-dependent metrics',()=>{
+test('personal statistics use the requested period for deterministic fixture history',()=>{
  const history=createDemoCoordinatorHistory(now),s=buildPersonalStatistics(DEMO_COORDINATOR,history,now-12*3600_000,now,'demo');
  assert.deepEqual(history,createDemoCoordinatorHistory(now));assert.equal(history.length,84);
  assert.equal(s.source,'demo');assert.equal(s.transferred,12);assert.equal(s.critical,3);assert.equal(s.kpiMet,10);assert.equal(s.kpiPercent,10/12*100);

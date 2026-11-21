@@ -12,7 +12,6 @@ fi
 case "${1:-dev}" in
   dev) exec "$UNDERCTRL_NODE" scripts/dev.mjs ;;
   demo) exec "$UNDERCTRL_NODE" scripts/dev.mjs --demo ;;
-  api) exec "$UNDERCTRL_NODE" tools/demo-api/index.mjs ;;
   build) exec "$UNDERCTRL_NODE" scripts/build.mjs ;;
   test) exec "$UNDERCTRL_NODE" --test tests/*.test.mjs ;;
   start) exec "$UNDERCTRL_NODE" scripts/preview.mjs ;;

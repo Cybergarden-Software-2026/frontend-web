@@ -51,12 +51,17 @@ test('backend scalar and nullable fields are safe for queue, alerts, event histo
   assert.equal(normalizeIncident({ ...raw, stateEnum: 'Research', stateId: null }).stateId, null);
 });
 
-test('web HTTP reads and assignment normalize raw records and scope the bearer to the explicit write', async t => {
+test('web HTTP snapshot, queue, and keyless assignment use the same incident normalization', async t => {
   const calls = [];
+  const conflict = 'Данные изменились. Проверьте актуальную команду и повторите назначение.';
   t.mock.method(globalThis, 'fetch', async (url, init) => {
     calls.push({ url, init });
-    if (url.includes('/assignment') && !init.headers.has('Authorization')) {
-      return new Response('Authentication required', { status: 401 });
+    if (url.endsWith('/assignment')) {
+      const { team, expectedRevision } = JSON.parse(init.body);
+      if (expectedRevision !== snapshot.revision) {
+        return Response.json({ error: conflict }, { status: 409 });
+      }
+      return Response.json({ ...snapshot, revision: 6, items: [{ ...raw, assignedGroupName: ` ${team} ` }] });
     }
     return Response.json(url.includes('/incidents?')
       ? { items: [raw], total: 1, page: 1, pageSize: 9, totalPages: 1, revision: 5 }
@@ -65,14 +70,96 @@ test('web HTTP reads and assignment normalize raw records and scope the bearer t
   const fetched = await api.snapshot();
   assert.equal(fetched.items[0].service, '');
   assert.equal(calls[0].url, '/api/v1/snapshot?view=web');
-  await assert.rejects(api.assign('uuid/one', 'Ops', 5), e => e instanceof ApiError && e.status === 401);
-  const assigned = await api.assign('uuid/one', 'Ops', 5, 'test-key');
-  assert.equal(assigned.items[0].assignedGroupName, '');
-  assert.equal(calls[2].url, '/api/v1/incidents/uuid%2Fone/assignment');
-  assert.equal(calls[2].init.headers.get('Authorization'), 'Bearer test-key');
-  assert.deepEqual(JSON.parse(calls[2].init.body), { team: 'Ops', expectedRevision: 5 });
+
+  const assigned = await api.assign('uuid/one', 'Ops', fetched.revision);
+  assert.equal(assigned.items[0].assignedGroupName, 'Ops');
+  assert.equal(assigned.revision, 6);
+  assert.equal(calls[1].url, '/api/v1/incidents/uuid%2Fone/assignment');
+  assert.equal(calls[1].init.method, 'POST');
+  assert.equal(calls[1].init.headers.get('Content-Type'), 'application/json');
+  assert.deepEqual(JSON.parse(calls[1].init.body), { team: 'Ops', expectedRevision: 5 });
+  await assert.rejects(api.assign('uuid/one', 'Ops', 4), e =>
+    e instanceof ApiError && e.status === 409 && e.message === conflict);
+
   const page = await api.incidents({});
   assert.deepEqual(page.items, fetched.items);
   assert.equal(calls[3].url, '/api/v1/incidents?page=1');
-  assert.deepEqual(calls.map(c => c.init.headers.has('Authorization')), [false, false, true, false]);
+  assert.ok(calls.every(({ init }) => !init.headers.has('Authorization')));
+});
+
+test('incident details use web UTC fields and history follows an incident-specific cursor', async t => {
+  const calls = [];
+  const controller = new AbortController();
+  const key = 'uuid/one';
+  const cursor = 'v1:event:4';
+  const detailPath = '/api/v1/incidents/uuid%2Fone?view=web';
+  const eventsPath = '/api/v1/incidents/uuid%2Fone/events?limit=3';
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    calls.push(url);
+    assert.equal(init.signal, controller.signal);
+    if (url === detailPath) {
+      return Response.json({ incident: raw, revision: 12, details: { isPresent: false } });
+    }
+    if (url === eventsPath) return Response.json({ items: snapshot.events, nextCursor: cursor });
+    assert.equal(url, eventsPath + '&beforeId=' + encodeURIComponent(cursor));
+    return Response.json({ items: [], nextCursor: null });
+  });
+
+  const detail = await api.incident(key, controller.signal);
+  assert.deepEqual(detail, { incident: normalizeIncident(raw), revision: 12, isPresent: false });
+  const firstPage = await api.incidentEvents(key, undefined, controller.signal);
+  assert.deepEqual(firstPage.items, normalizeSnapshot(snapshot).events);
+  assert.equal(firstPage.nextCursor, cursor);
+  assert.deepEqual(await api.incidentEvents(key, firstPage.nextCursor, controller.signal), {
+    items: [],
+    nextCursor: null,
+  });
+  assert.deepEqual(calls, [detailPath, eventsPath, eventsPath + '&beforeId=' + encodeURIComponent(cursor)]);
+});
+
+test('shift statistics and mass problem curation use server ranges and revisions', async t => {
+  const calls = [];
+  const controller = new AbortController();
+  const from = Date.parse('2026-11-21T07:00:00Z');
+  const to = from + 12 * 3600_000;
+  const statistics = {
+    source: 'api', coordinator: { id: 'shift', name: 'Смена координаторов' }, start: from, end: to,
+    transferred: 0, critical: 0, measured: 0, averageMs: null, kpiMet: 0, kpiPercent: null,
+    transfers: [],
+  };
+  const group = {
+    id: 'uuid-1-uuid-2', title: 'Оплата', reason: 'Один сервис',
+    sysIds: ['uuid-1', 'uuid-2'], incidentIds: ['INC-1', 'INC-2'],
+  };
+  const initial = { revision: 7, items: [group], exclusions: [] };
+  const edited = {
+    revision: 8, items: [], exclusions: [{
+      sysId: 'uuid-1', incidentId: 'INC-1', header: 'Сбой оплаты', groupTitle: 'Оплата',
+      contextKey: 'context-1', excludedAt: to,
+    }],
+  };
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    const path = new URL(url, 'https://underctrl.example');
+    calls.push({ path, init });
+    if (path.pathname === '/api/v1/statistics/shift') return Response.json(statistics);
+    assert.equal(path.pathname, '/api/v1/problems/clusters');
+    return Response.json(init.method === 'PATCH' ? edited : initial);
+  });
+
+  assert.deepEqual(await api.shiftStatistics(from, to, controller.signal), statistics);
+  assert.deepEqual(Object.fromEntries(calls[0].path.searchParams), {
+    from: new Date(from).toISOString(),
+    to: new Date(to).toISOString(),
+  });
+  assert.equal(calls[0].init.signal, controller.signal);
+
+  const clusters = await api.massClusters(controller.signal);
+  assert.deepEqual(clusters, initial);
+  assert.equal(calls[1].init.signal, controller.signal);
+  const edit = { action: 'exclude', groupId: group.id, sysId: 'uuid-1' };
+  assert.deepEqual(await api.editMassClusters(edit, clusters.revision), edited);
+  assert.equal(calls[2].init.method, 'PATCH');
+  assert.equal(calls[2].init.headers.get('Content-Type'), 'application/json');
+  assert.deepEqual(JSON.parse(calls[2].init.body), { ...edit, expectedRevision: 7 });
+  assert.ok(calls.every(({ init }) => !init.headers.has('Authorization')));
 });

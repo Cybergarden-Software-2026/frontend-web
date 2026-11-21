@@ -35,7 +35,7 @@ test('empty-period Excel has no fabricated means, no blank default sheet, and ex
 });
 test('personal demo export has four compact sheets, all transfers, and explicit provenance on every sheet',async()=>{
  const {buildPersonalStatistics}=await import('../src/domain/personalStatistics.ts');
- const {DEMO_COORDINATOR,createDemoCoordinatorHistory}=await import('../src/data/demoPersonalStatistics.ts');
+ const {DEMO_COORDINATOR,createDemoCoordinatorHistory}=await import('./fixtures/demoPersonalStatistics.mjs');
  const personal=buildPersonalStatistics(DEMO_COORDINATOR,createDemoCoordinatorHistory(end),start,end,'demo');
  const ctx={...context,personal,generalAvailable:false},sections=shiftReportSections(stats,ctx);
  assert.deepEqual(sections.map(s=>s.title),['Личная статистика','Мои распределения','Общая очередь','О данных']);

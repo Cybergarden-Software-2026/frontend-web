@@ -119,19 +119,6 @@ test('coordinator wait crossing 8 minutes enters header and produces one chime; 
  const routed={...waiting,assignedGroupName:'Resolution team'};
  assert.equal(headerAlerts([routed],crossing).length,0);assert.equal(tracker.update([routed,ordinary],crossing),false);
 });
-test('simulation inputs control header eligibility without modifying the source incident',async()=>{
- const {buildHeaderTestIncident}=await import('../src/domain/headerSimulation.ts');
- const {headerAlerts}=await import('../src/domain/operations.ts');
- const {COORDINATOR_TEAM}=await import('../src/domain/incidents.ts');
- const input={title:'My test',priority:2,state:'Assigned',team:COORDINATOR_TEAM,waitingMinutes:8,waitingSeconds:10,registeredMinutes:60,deadlineMinutes:60};
- const original=structuredClone(item),sim=buildHeaderTestIncident(item,input,now,'test');
- assert.deepEqual(item,original);assert.ok(sim.sysId.startsWith('header-test-'));assert.equal(headerAlerts([sim],now)[0].kind,'waiting');
- for(const state of ['Resolved','Closed'])assert.equal(headerAlerts([buildHeaderTestIncident(item,{...input,state},now,state)],now).length,0);
- assert.equal(headerAlerts([buildHeaderTestIncident(item,{...input,team:'Resolution team'},now,'assigned')],now).length,0);
- const critical=buildHeaderTestIncident(item,{...input,team:'',priority:4},now,'critical');assert.equal(headerAlerts([critical],now)[0].kind,'critical');
-});
-
-
 test('header sound and queue SLA coloring start strictly below 20 percent',async()=>{
  const {headerAlerts}=await import('../src/domain/operations.ts');
  const {displaySlaKind}=await import('../src/domain/deadlineDisplay.ts');

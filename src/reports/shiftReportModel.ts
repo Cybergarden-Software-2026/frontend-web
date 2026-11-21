@@ -47,18 +47,18 @@ function personalReportSections(s:ShiftStatistics,context:ReportContext,p:Person
  const general=(value:number)=>context.generalAvailable===false?null:value;
  const demo=p.source==='demo';
  return [
-  {title:'Личная статистика',columns:[{label:'Показатель'},{label:'Значение'}],rows:[
-   ['Сотрудник',p.coordinator.name],['Источник личных показателей',demo?'ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ — тестовый аккаунт':'Персональная статистика'],
+  {title:demo?'Личная статистика':'Статистика смены',columns:[{label:'Показатель'},{label:'Значение'}],rows:[
+   [demo?'Сотрудник':'Смена',p.coordinator.name],['Источник показателей',demo?'ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ — тестовый аккаунт':'Журнал назначений на сервере'],
    ['Начало периода',reportDate(p.start)],['Конец периода',reportDate(p.end)],['Распределено',p.transferred],['Среднее время координирования',durationLabel(p.averageMs)],['KPI: доля передач меньше 10 минут, %',p.kpiPercent],['KPI выполнен, передач',p.kpiMet],['Передач с измеренным временем',p.measured],['Критических распределено',p.critical],
   ]},
-  {title:'Мои распределения',columns:[{label:'Инцидент'},{label:'Название'},{label:'Команда решения'},{label:'Назначено МСК'},{label:'Время координирования, мин',format:'minutes'},{label:'KPI меньше 10 минут'}],rows:p.transfers.map(row=>[row.incidentId,row.title,row.team,reportDate(row.assignedAt),minutes(row.durationMs),row.kpiMet===null?'Нет данных':row.kpiMet?'Выполнен':'Не выполнен'])},
+  {title:demo?'Мои распределения':'Распределения смены',columns:[{label:'Инцидент'},{label:'Название'},{label:'Команда решения'},{label:'Назначено МСК'},{label:'Время координирования, мин',format:'minutes'},{label:'KPI меньше 10 минут'}],rows:p.transfers.map(row=>[row.incidentId,row.title,row.team,reportDate(row.assignedAt),minutes(row.durationMs),row.kpiMet===null?'Нет данных':row.kpiMet?'Выполнен':'Не выполнен'])},
   {title:'Общая очередь',columns:[{label:'На конец выбранного периода'},{label:'Количество'}],rows:[['Ожидают распределения',general(s.coordinator.atEnd)],['Критических без команды',general(s.coordinator.critical)],['Ждут больше 8 минут',general(s.waitingOver8)]]},
   {title:'О данных',columns:[{label:'Источник и правила'}],rows:[
-   [demo?'Личные показатели и распределения вымышлены для тестового аккаунта. Они не отражают работу реальных сотрудников.':'Личные показатели относятся к указанному сотруднику.'],
+   [demo?'Личные показатели и распределения вымышлены для тестового аккаунта. Они не отражают работу реальных сотрудников.':'Показатели относятся ко всей смене координаторов.'],
    ['KPI выполнен при передаче строго меньше чем за 10 минут. Ровно 10:00 не соответствует KPI. Неизвестные длительности не входят в среднее и долю KPI.'],
-   ['Период: московское время UTC+3; начало включено, конец исключён. Все строки личных распределений включены в отчёт.'],
+   ['Период задан в московском времени UTC+3. Начало включено, конец исключён. Все распределения за период включены в отчёт.'],
    [context.generalAvailable===false?'Общая очередь не загружена; пустые значения не означают нулевую очередь.':`Общая очередь — по загруженному снимку версии ${context.revision} и доступной истории изменений. Последнее изменение: ${date(context.updatedAt)}.`],
-   [context.historyIncomplete||!context.connected||context.sourceStale?'Общие данные могут быть неполными или устаревшими. Это не влияет на демонстрационные личные показатели.':'Общие данные получены из доступного снимка и истории; изменения до начала ведения истории восстановить нельзя.'],
+   [context.historyIncomplete||!context.connected||context.sourceStale?'Данные общей очереди могут быть неполными или устаревшими.':'Общие данные получены из доступного снимка и истории; изменения до начала ведения истории восстановить нельзя.'],
    [`Сформирован: ${reportDate(s.generatedAt)}.`],
   ].map(row=>row as ReportValue[])},
  ];

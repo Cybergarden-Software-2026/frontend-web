@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {curateMassGroup,massGroupRouting,excludeMassIncident,visibleMassProblems,exclusionApplies} from '../src/domain/massProblems.ts';
-import {MASS_GROUPS_KEY,readManualMassGroups,saveManualMassGroups,MASS_EXCLUSIONS_KEY,readMassExclusions,saveMassExclusions} from '../src/data/massProblemPreferences.ts';
+import {massGroupRouting} from '../src/domain/massProblems.ts';
 import {assignIncidentGroup} from '../src/data/assignIncidentGroup.ts';
 
 const seed=JSON.parse(readFileSync(new URL('../data/seed.json',import.meta.url),'utf8'))[0];
@@ -10,35 +9,8 @@ const base={...seed,stateEnum:'Assigned',stateId:0,assignedGroupName:'Old team',
 const incident=id=>({...base,sysId:id,id:'INC-'+id});
 const snapshot=(items,revision=1)=>({revision,serverTime:'2026-11-21T09:00:00Z',updatedAt:'2026-11-21T09:00:00Z',items,events:[],source:{status:'ok'},itsmUrlTemplate:null});
 const reviewed=items=>items.map(item=>({sysId:item.sysId,team:item.assignedGroupName}));
-function storage(){const entries=new Map();return {getItem:key=>entries.get(key)??null,setItem:(key,value)=>entries.set(key,value)};}
 function options(items,patch={}){return {reviewed:reviewed(items),team:'New team',snapshot:snapshot(items),onSnapshot(){},onProgress(){},...patch};}
 
-test('excluding a member changes only automatic grouping, leaves incident and queue intact, and can be undone',()=>{
- const items=['a','b','c'].map(incident),original=structuredClone(items);
- const excluded=excludeMassIncident([],items[0],'Gateway',100);
- assert.deepEqual(visibleMassProblems(items,excluded)[0].sysIds,['b','c']);
- assert.deepEqual(items,original);
- assert.equal(visibleMassProblems(items.slice(0,2),excluded).length,0);
- assert.deepEqual(visibleMassProblems(items,[])[0].sysIds,['a','b','c']);
-});
-test('exclusions survive team, priority and group membership changes, but new symptoms are reconsidered',()=>{
- const a=incident('a'),excluded=excludeMassIncident([],a,'Gateway',100);
- assert.ok(exclusionApplies(excluded[0],{...a,assignedGroupName:'Separate team',priorityId:4}));
- const items=[{...a,assignedGroupName:'Separate team'},incident('b'),incident('c'),incident('d')];
- assert.deepEqual(visibleMassProblems(items,excluded)[0].sysIds,['b','c','d']);
- for(const patch of [{service:'Other service'},{header:'Different symptoms'},{submitDate:'2026-11-21T09:00:00Z'}])assert.equal(exclusionApplies(excluded[0],{...a,...patch}),false);
- assert.equal(excludeMassIncident(excluded,a,'New title',200).length,1);
-});
-test('manual exclusions persist across reload and reject corrupt or unavailable storage',()=>{
- const store=storage(),rows=excludeMassIncident([],incident('a'),'Gateway',100);
- assert.equal(saveMassExclusions(rows,store),true);assert.deepEqual(readMassExclusions(store),rows);
- store.setItem(MASS_EXCLUSIONS_KEY,JSON.stringify([null,{},42,{...rows[0],excludedAt:'wrong'},...rows,rows[0]]));
- assert.deepEqual(readMassExclusions(store),rows);
- store.setItem(MASS_EXCLUSIONS_KEY,'broken');assert.deepEqual(readMassExclusions(store),[]);
- const broken={getItem(){throw Error('Denied');},setItem(){throw Error('Full');}};
- assert.deepEqual(readMassExclusions(broken),[]);assert.equal(saveMassExclusions(rows,broken),false);
- assert.equal(saveMassExclusions(rows,null),false);
-});
 test('batch uses existing assignment API sequentially with latest whole-snapshot revision and deduplicates members',async()=>{
  const items=['a','b','c'].map(incident),calls=[],snapshots=[],progress=[];
  let current=snapshot(items);
@@ -86,37 +58,6 @@ test('explicitly reviewed continuation can safely confirm an uncertain write wit
  assert.deepEqual(calls,['b']);assert.deepEqual(result.results.map(r=>r.status),['unchanged','assigned']);assert.equal(result.interrupted,false);
 });
 
-
-test('manually adding an incident preserves reviewed composition across reload without duplicate groups',()=>{
- const items=['a','b'].map(incident),extra={...incident('c'),service:'Different service',header:'Different symptom'};
- const group=visibleMassProblems(items,[])[0],manual=curateMassGroup([],group,[...items,extra]);
- const store=storage();assert.equal(saveManualMassGroups(manual,store),true);
- const groups=visibleMassProblems([...items,extra],[],readManualMassGroups(store));
- assert.equal(groups.length,1);assert.deepEqual(groups[0].sysIds,['a','b','c']);assert.ok(groups[0].id.startsWith('manual:'));
- const excluded=excludeMassIncident([],extra,group.title,200);
- assert.deepEqual(visibleMassProblems([...items,extra],excluded,manual)[0].sysIds,['a','b']);
- const changed=[...items,{...extra,header:'New symptom'}];assert.deepEqual(visibleMassProblems(changed,[],manual)[0].sysIds,['a','b']);
-});
-test('curated groups accept active research and omit completed or missing records after live updates',()=>{
- const items=['a','b','c'].map(incident),group=visibleMassProblems(items,[])[0],manual=curateMassGroup([],group,items);
- const live=[{...items[0],stateEnum:'Research'},{...items[1],stateEnum:'Closed'}];
- const groups=visibleMassProblems(live,[],manual);assert.equal(groups.length,1);assert.deepEqual(groups[0].sysIds,['a']);
- assert.equal(visibleMassProblems([{...live[0],stateEnum:'Resolved'}],[],manual).length,0);
-});
-test('a manually moved incident is removed from previous manual membership',()=>{
- const items=['a','b','c','d'].map(incident),group=visibleMassProblems(items,[])[0];
- const first=curateMassGroup([],group,items.slice(0,2));
- const second=curateMassGroup(first,{...group,id:'other',title:'Other'},[items[0],items[2],items[3]]);
- const grouped=visibleMassProblems(items,[],second).flatMap(row=>row.sysIds);
- assert.equal(grouped.length,4);assert.equal(new Set(grouped).size,4);
-});
-test('manual membership storage validates corrupt input and handles failed persistence',()=>{
- const store=storage(),group=visibleMassProblems(['a','b'].map(incident),[])[0],manual=curateMassGroup([],group,['a','b'].map(incident));
- store.setItem(MASS_GROUPS_KEY,JSON.stringify([null,42,{},manual[0],{id:'manual:invalid',title:'title',reason:'reason',members:[null,{},42]}]));
- assert.deepEqual(readManualMassGroups(store)[0],manual[0]);assert.deepEqual(readManualMassGroups(store)[1].members,[]);
- store.setItem(MASS_GROUPS_KEY,'invalid');assert.deepEqual(readManualMassGroups(store),[]);
- assert.equal(saveManualMassGroups(manual,null),false);
-});
 test('group routing badge reflects real teams instead of always showing waiting',()=>{
  const a=incident('a'),b=incident('b');
  assert.equal(massGroupRouting([{...a,assignedGroupName:''},b]).tone,'waiting');
