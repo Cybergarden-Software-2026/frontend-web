@@ -38,6 +38,12 @@ export function App() {
  const clock=now+data.clockOffset;
  const {sequence:signalSequence,audioStatus}=useAlertSignal(headerItems,clock,Boolean(snapshot));
  const events=snapshot?.events??[],latest=events[0]?.eventId??0,unread=events.filter(e=>e.eventId>lastRead).length;
+ useEffect(()=>{
+  if(connected&&snapshot&&lastRead>latest){
+   setLastRead(0);
+   try{localStorage.setItem(readKey,'0');}catch{}
+  }
+ },[connected,snapshot,latest,lastRead]);
  const selected=items.find(i=>i.sysId===detailId)??headerPreview?.find(i=>i.sysId===detailId);
  const teams=[...new Set(items.map(i=>i.assignedGroupName))].sort();
  function navigate(target:Page){location.hash=target;setPage(target);setActionError(null);}
