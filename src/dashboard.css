@@ -79,8 +79,8 @@ html,body,#root{height:100%;overflow:hidden}
 .queue-priority.level-4{background:var(--danger-tint);color:var(--danger)}.queue-priority.level-3{background:var(--warning-tint);color:var(--warning)}.queue-priority.level-2{background:var(--primary-tint);color:var(--primary)}.queue-priority.level-1{background:var(--green-tint);color:var(--green)}
 .incident-table .status{font-size:13px;line-height:17px;font-weight:700;color:var(--primary)}.incident-table .status i{display:none}
 .incident-table .state-Resolved,.incident-table .state-Closed{color:var(--green)}
-.queue-sla{display:grid;gap:3px;color:var(--cyan)}.queue-sla strong{font-size:14px;line-height:16px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.queue-sla small{font-size:12px;line-height:14px}
-.queue-sla.late{color:var(--danger)}.queue-sla.soon{color:var(--warning)}.queue-sla.stopped{color:var(--green)}.queue-sla.researching strong{font-size:12px}.queue-sla.researching small{font-size:10px}
+.queue-sla{display:grid;gap:3px;color:#34546f}.queue-sla strong{font-size:14px;line-height:16px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.queue-sla small{font-size:12px;line-height:14px}
+.queue-sla.late{color:var(--danger)}.queue-sla.soon{color:#79501b}.queue-sla.stopped{color:var(--green)}.queue-sla.researching strong{font-size:12px}.queue-sla.researching small{font-size:10px}
 .table-sort{display:flex;align-items:center;gap:6px;background:none;border:0;padding:0;font-size:inherit;font-weight:inherit;color:inherit}
 .queue-team-cell{display:grid;gap:4px;justify-items:start;min-width:0}
 .queue-team-cell .team-tag{font-size:11px;line-height:14px;gap:6px;align-items:center;font-weight:650;min-width:0;max-width:100%}

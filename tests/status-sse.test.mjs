@@ -69,6 +69,24 @@ test('atomic JSON status changes reach the shared snapshot, queue, open incident
   assert.equal(headerAlerts(snapshot.items, now)[0].tone, 'warning');
   assert.equal(queryIncidents(snapshot.items, { group: 'critical' }, snapshot.revision, now).total, 0);
   assert.equal(queryIncidents(snapshot.items, { group: 'coordinators' }, snapshot.revision, now).total, 1);
+  // Deadline warnings apply to unassigned research and disappear
+  // immediately when the same SSE source extends its deadline.
+  Object.assign(rows[0], { assignedGroupName: '', lastAssignmentToTeamDateTime: new Date(now).toISOString(), submitDate: new Date(now - 90 * 60_000).toISOString(), deadline: new Date(now + 10 * 60_000).toISOString() });
+  writeFileSync(path + '.next', JSON.stringify(rows)); renameSync(path + '.next', path);
+  const nearDeadline = await nextSnapshot();
+  assert.equal(headerAlerts(nearDeadline.items, now)[0].kind, 'deadline');
+  Object.assign(rows[0], { deadline: new Date(now + 10 * 3600_000).toISOString() });
+  writeFileSync(path + '.next', JSON.stringify(rows)); renameSync(path + '.next', path);
+  const extended = await nextSnapshot();
+  assert.equal(headerAlerts(extended.items, now).length, 0);
+  Object.assign(rows[0], { deadline: new Date(now - 60_000).toISOString() });
+  writeFileSync(path + '.next', JSON.stringify(rows)); renameSync(path + '.next', path);
+  const overdue = await nextSnapshot();assert.equal(headerAlerts(overdue.items, now)[0].kind, 'deadline');
+  Object.assign(rows[0], { assignedGroupName: 'Команда X' });
+  writeFileSync(path + '.next', JSON.stringify(rows)); renameSync(path + '.next', path);
+  const assigned = await nextSnapshot();assert.equal(headerAlerts(assigned.items, now).length, 0);
+
+
  } finally {
   clearTimeout(timeout); controller.abort(); await reader?.cancel().catch(() => {});
   await api.close(); rmSync(dir, { recursive: true, force: true });
