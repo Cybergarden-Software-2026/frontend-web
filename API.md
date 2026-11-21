@@ -8,10 +8,11 @@ Status reflects the committed implementation in the owning repository. Productio
 
 | Capability | Owning repository | Status |
 |---|---|---|
+| `GET/POST/DELETE /api/v1/auth/coordinator/session` and protected dashboard routes | `backend` and `frontend-web` | Implemented (enabled by configuration) |
 | `GET /api/v1/snapshot` and `GET /api/v1/dashboard` | `backend` | Implemented |
 | `GET /api/v1/incidents` with page and cursor pagination, and `GET /api/v1/incidents/{key}?view=web` | `backend` | Implemented |
 | `GET /api/v1/teams` and rules-based `GET /api/v1/incidents/{key}/analysis` | `backend` | Implemented |
-| Keyless `POST /api/v1/incidents/{sysId}/assignment` | `backend` and `frontend-web` | Implemented |
+| `POST /api/v1/incidents/{sysId}/assignment` with revision checking | `backend` and `frontend-web` | Implemented |
 | `GET /api/v1/events`, `GET /api/v1/events/stream`, and `GET /api/v1/incidents/{key}/events` | `backend` | Implemented |
 | `GET /api/v1/notifications` and `PUT /api/v1/notifications/{notification_id}/read` | `backend` | Implemented |
 | `GET /api/v1/openapi.json`, `GET /api/docs`, `GET /redoc`, and `GET /docs/oauth2-redirect` | `backend` | Implemented |
@@ -45,7 +46,23 @@ For a standard local Docker Compose deployment, the backend base URL is `http://
 | View analysis | `GET /incidents/{key}/analysis` | Facts, items requiring attention, and candidate teams |
 | Assign a team | `POST /incidents/{sysId}/assignment` | Full snapshot after the operation |
 
-The dashboard, reads, SSE subscriptions, assignments and group edits are available without login. Anyone who can reach this deployment can read the data and perform these writes.
+The command examples below use a local instance without authentication. When coordinator access is configured, call protected routes with the coordinator session cookie over HTTPS.
+
+### Coordinator access
+
+The Rust API enables coordinator authentication when the administrator configures `COORDINATOR_ACCESS_KEY`. This key is shared with authorized coordinators outside the application. The frontend displays the login form and uses the session returned by the API. There is no user registration.
+
+| Method on `/api/v1/auth/coordinator/session` | Request and response |
+|---|---|
+| `GET` | Returns `200` with `{ "required": true, "authenticated": false }` if authentication is enabled and the client needs to sign in. `authenticated` is `true` for a valid session. |
+| `POST` | Accepts JSON `{ "key": "<coordinator key>", "remember": false }`. Returns `200` with `required: true` and `authenticated: true` and sets a cookie on success. An invalid key returns `401`. |
+| `DELETE` | Invalidates the current session, clears the cookie and returns `204`. |
+
+If the server has no coordinator key, `GET` and `POST` return `200` with `required: false` and `authenticated: false`. Dashboard routes are then open, which allows the frontend and backend to be rolled out before enabling the key. `DELETE` still returns `204`.
+
+The API issues a host-only `__Host-underctrl-coordinator` cookie with `Secure`, `HttpOnly`, `SameSite=Strict`, and `Path=/`. The default session expires after 12 hours on the server and uses a browser session cookie. Selecting **Remember this device** issues a cookie and session valid for seven days. The browser sends the cookie on normal same-origin requests, including SSE. For cross-origin requests within the same site, add the HTTPS frontend origin to `CORS_ORIGINS` and send credentials on both `fetch` and `EventSource`.
+
+The API returns `401` for protected routes without a valid session and `403` for writes from a disallowed browser origin. Protection covers dashboard data, the queue, incident details and history, the team directory, analysis, notifications, statistics, SSE, team assignments and group edits. Authenticated data and session responses specify `Cache-Control: no-store`. The server rechecks access before sending each SSE update or heartbeat. Health and API documentation are available without a session.
 
 ## 1. Get a snapshot and find incident identifiers
 
@@ -130,7 +147,7 @@ curl -fsS "$API/teams" | jq '.items[] | {name, activeCount}'
 curl -fsS "$API/incidents/$SYS_ID/analysis" | jq '{summary, attention, candidates, missing}'
 ```
 
-**Assignment.** `POST /incidents/{sysId}/assignment` requires the incident's `sysId`. The JSON body contains the chosen team name and the snapshot revision the coordinator saw. Send the JSON body without credentials.
+**Assignment.** `POST /incidents/{sysId}/assignment` requires the incident's `sysId`. The JSON body contains the chosen team name and the snapshot revision the coordinator saw. Send the coordinator session cookie if authentication is enabled.
 
 ```json
 {"team":"Storage Operations","expectedRevision":12}

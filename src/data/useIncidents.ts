@@ -2,20 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Snapshot } from '../domain/incidents';
 import { api, API_BASE } from './api';
 import { normalizeSnapshot } from './wire';
+import { SNAPSHOT_KEY } from './workspaceSessionCache';
 
-const KEY = 'underctrl.web.snapshot.v1';
 const RETRY_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 
 function cached(): Snapshot | null {
  try {
-  const value = JSON.parse(localStorage.getItem(KEY) ?? 'null');
+  const value = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) ?? 'null');
   return value && Array.isArray(value.items) && Array.isArray(value.events) ? normalizeSnapshot(value) : null;
  } catch { return null; }
 }
 
-export function useIncidents() {
- const [snapshot, setSnapshot] = useState<Snapshot | null>(cached);
+export function useIncidents(persistSnapshot = true) {
+ const [snapshot, setSnapshot] = useState<Snapshot | null>(() => persistSnapshot ? cached() : null);
  const [connected, setConnected] = useState(false);
  const [checked, setChecked] = useState(false);
  const [online, setOnline] = useState(navigator.onLine);
@@ -44,8 +44,10 @@ export function useIncidents() {
   setSnapshot(incoming);
   setLoading(false);
   setError(null);
-  try { localStorage.setItem(KEY, JSON.stringify(incoming)); } catch {}
- }, []);
+  if (persistSnapshot) {
+   try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(incoming)); } catch {}
+  }
+ }, [persistSnapshot]);
 
  const refresh = useCallback((): Promise<void> => {
   if (!navigator.onLine) return Promise.resolve();
@@ -88,7 +90,7 @@ export function useIncidents() {
   let stream: EventSource | null = null;
   function connect() {
    if (!navigator.onLine || (stream && stream.readyState !== EventSource.CLOSED)) return;
-   const source = new EventSource(API_BASE + '/events/stream?view=web');
+   const source = new EventSource(API_BASE + '/events/stream?view=web', { withCredentials: true });
    stream = source;
    source.addEventListener('snapshot', event => {
     if (source !== stream || !navigator.onLine) return;
@@ -113,7 +115,7 @@ export function useIncidents() {
     const hadStream = transport.current.stream;
     transport.current.stream = false;
     updateConnection();
-    if (hadStream) void refresh();
+    if (hadStream || source.readyState === EventSource.CLOSED) void refresh();
    };
   }
 
