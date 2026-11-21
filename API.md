@@ -12,6 +12,8 @@ Status reflects the committed implementation in the owning repository. Productio
 | `GET /api/v1/incidents` with page and cursor pagination, and `GET /api/v1/incidents/{key}` | `backend` | Implemented |
 | `GET /api/v1/teams` and rules-based `GET /api/v1/incidents/{key}/analysis` | `backend` | Implemented |
 | `POST /api/v1/incidents/{sysId}/assignment` with a coordinator bearer token | `backend` | Implemented |
+| Coordinator key entry, optional local persistence and logout (client-side only) | `frontend-web` | Implemented |
+| Username/password login, refresh tokens and server session validation | `backend` | Not implemented |
 | Assignment without a coordinator bearer token | `backend` and `frontend-web` | Not implemented |
 | LLM-backed incident analysis | `backend` | Not implemented |
 | `GET /api/v1/events`, `GET /api/v1/events/stream`, and `GET /api/v1/incidents/{key}/events` | `backend` | Implemented |
@@ -263,3 +265,9 @@ curl -fsS "$API/openapi.json" | jq '.info'
 ```
 
 The Rust backend importer reads incidents from an export file. The local demo adapter in `frontend-web` provides `POST /api/v1/demo` for simulation and `PUT /api/v1/incidents` for full data replacement.
+
+## Frontend coordinator session
+
+The web client provides a key-entry screen. With “Remember on this device” selected, it stores the coordinator key locally, scoped to the current origin and API prefix, and restores it after a reload. Without that choice the key remains in memory for the current tab. It sends the key only on assignment requests, never in URLs, read requests or SSE. Logout clears the key and cached incident data. A 401 for the current key returns the client to key entry; a late rejection of a previous session does not clear a newer one.
+
+This is client-side key storage, not a new backend login capability. The existing backend validates the key on assignment; there is no read-only key-validation, login or refresh endpoint. Reads and SSE retain their existing public contract. No backend route or schema is changed by this frontend behaviour.

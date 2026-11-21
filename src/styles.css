@@ -19,3 +19,9 @@
 .bell-notice-stack .toast-open span{overflow-wrap:anywhere}
 @keyframes notice-from-bell{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(prefers-reduced-motion:reduce){.bell-notice-stack .notification-toast{animation:none}}
+
+.connection-retry{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:128px;flex-shrink:0;white-space:nowrap}
+.connection-retry:disabled{cursor:wait;opacity:.75}
+.retry-spinner{display:inline-block;width:15px;height:15px;flex-shrink:0;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:connection-retry-spin .8s linear infinite}
+@keyframes connection-retry-spin{to{transform:rotate(360deg)}}
+@media(max-width:520px){.connection-retry{min-width:0}}

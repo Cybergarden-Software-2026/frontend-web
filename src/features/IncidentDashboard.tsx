@@ -7,7 +7,6 @@ import { api } from '../data/api';
 import { Icon } from '../components/Icon';
 import { Status,Team,Empty } from '../components/ui';
 import { IncidentArrivalTracker } from '../domain/alertSignals';
-import { AlertHeader } from './AlertHeader';
 import { timestamp,stateOf } from '../domain/incidents';
 
 export function QueueSla({item,now}:{item:Incident;now:number}) {
@@ -20,7 +19,7 @@ export function QueueSla({item,now}:{item:Incident;now:number}) {
  return <span className={`queue-sla ${delta<0?'late':delta<=30*60_000?'soon':'normal'}`}><strong>{delta<0?'− ':''}{value}</strong><small>{delta<0?'Просрочен':delta<=30*60_000?'Истекает':'Осталось'}</small></span>;
 }
 
-export function IncidentDashboard({headerItems,snapshot,now,connected,loading,onOpen,onAssign,onJournal,unread,signalSequence,audioStatus,teamContext}:{headerItems:Incident[];signalSequence:number;audioStatus:string;snapshot:Snapshot|null;now:number;connected:boolean;loading:boolean;onOpen:(id:string)=>void;onAssign:(id:string)=>void;onJournal:()=>void;unread:number;teamContext:{name:string;token:number}|null}) {
+export function IncidentDashboard({snapshot,now,connected,loading,onOpen,onAssign,teamContext}:{snapshot:Snapshot|null;now:number;connected:boolean;loading:boolean;onOpen:(id:string)=>void;onAssign:(id:string)=>void;teamContext:{name:string;token:number}|null}) {
  const items=snapshot?.items??[];
  const [group,setGroup]=useState<Group>('all'),[search,setSearch]=useState(''),[debounced,setDebounced]=useState(''),[team,setTeam]=useState(''),[sort,setSort]=useState('priority'),[page,setPage]=useState(1),[pageSize,setPageSize]=useState(9);
  const [response,setResponse]=useState<{key:string;data:QueuePage}|null>(null),[failure,setFailure]=useState(false),[fetching,setFetching]=useState(false);
@@ -51,7 +50,9 @@ export function IncidentDashboard({headerItems,snapshot,now,connected,loading,on
  useEffect(()=>{if(!Object.keys(flashes).length)return;const timer=setTimeout(()=>setFlashes(old=>Object.fromEntries(Object.entries(old).filter(([,expiry])=>expiry>Date.now()))),6100);return()=>clearTimeout(timer);},[flashes]);
  useEffect(()=>{if(!Object.keys(arrivals).length)return;const timer=setTimeout(()=>setArrivals(old=>Object.fromEntries(Object.entries(old).filter(([,expiry])=>expiry>Date.now()))),6100);return()=>clearTimeout(timer);},[arrivals]);
  const cached=useMemo(()=>queryIncidents(items,query,revision,now),[items,key,revision,Math.floor(now/60_000)]);
- const result=connected&&!failure&&response?.key===key?response.data:cached;
+ // SSE replaces the full snapshot immediately. A cached HTTP page from an older
+ // revision must never hide a status change while the next page request is in flight.
+ const result=connected&&!failure&&response?.key===key&&response.data.revision===revision?response.data:cached;
  const waiting=connected&&!failure&&response?.key!==key;
  const flash=(item:Incident,...fields:string[])=>Math.max(0,...fields.map(f=>flashes[`${item.sysId}.${f}`]??0));
  const filterCount=[priority,status,sla,team].filter(Boolean).length;
@@ -60,7 +61,6 @@ export function IncidentDashboard({headerItems,snapshot,now,connected,loading,on
  const cell=(item:Incident,fields:string[],content:React.ReactNode)=>{const stamp=flash(item,...fields);return <div key={stamp} className={`live-field ${stamp>Date.now()?'field-changed':''}`}>{content}</div>;};
  const rows=result.items;
  return <>
- <AlertHeader items={headerItems} now={now} onOpen={onOpen} onJournal={onJournal} unread={unread} signalSequence={signalSequence} audioStatus={audioStatus}/>
  <section className="incident-queue surface" aria-busy={fetching}>
   <header className="incident-queue-heading"><h2>Очередь инцидентов</h2></header>
   <div className="incident-queue-toolbar"><div className="incident-tabs" role="group" aria-label="Группы инцидентов">{QUEUE_GROUPS.map(tab=><button key={tab.id} aria-pressed={group===tab.id} onClick={()=>{setGroup(tab.id);setPage(1);}}><span>{tab.title}</span><b>{items.filter(i=>belongs(i,tab.id)).length}</b></button>)}</div><div className="queue-search-controls"><label className="search-field incident-search"><Icon name="search" size={16}/><input aria-label="Найти инцидент" placeholder="Найти инцидент" value={search} onChange={e=>setSearch(e.target.value)} type="search"/></label><div className="queue-filter-anchor" ref={filtersAnchor}><button className={`queue-filter-button ${filterCount?'active':''}`} aria-label={`Фильтры${filterCount?': '+filterCount:''}`} aria-expanded={filtersOpen} aria-controls="queue-filter-panel" onClick={()=>setFiltersOpen(v=>!v)}><Icon name="filter" size={18}/>{filterCount>0&&<b>{filterCount}</b>}</button>{filtersOpen&&<div className="queue-filter-panel" id="queue-filter-panel" role="region" aria-label="Фильтры очереди"><header><strong>Фильтры</strong><button className="text-button" onClick={resetFilters}>Сбросить</button></header><label className="field"><span>Приоритет</span><select aria-label="Фильтр по приоритету" value={priority} onChange={e=>{setPriority(e.target.value);setPage(1);}}><option value="">Все приоритеты</option><option value="4">P1 · Критический</option><option value="3">P2 · Высокий</option><option value="2">P3 · Средний</option><option value="1">P4 · Низкий</option></select></label><label className="field"><span>Статус</span><select aria-label="Фильтр по статусу" value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}><option value="">Все статусы</option>{Object.entries(STATES).map(([id,title])=><option value={id} key={id}>{title}</option>)}</select></label><label className="field"><span>SLA</span><select aria-label="Фильтр по SLA" value={sla} onChange={e=>{setSla(e.target.value);setPage(1);}}><option value="">Любой срок</option><option value="late">Просрочен</option><option value="soon">Истекает · до 30 минут</option><option value="normal">В пределах срока</option><option value="unknown">Срок не указан</option><option value="research">Исследование</option><option value="restored">Устранён</option><option value="closed">Закрыт</option></select></label><label className="field"><span>Команда</span><select aria-label="Фильтр по команде" value={team} onChange={e=>{setTeam(e.target.value);setPage(1);}}><option value="">Все команды</option><option value="__unassigned__">Без команды</option>{teamNames.map(name=><option key={name}>{name}</option>)}</select></label><button className="button primary" onClick={()=>setFiltersOpen(false)}>Готово</button></div>}</div></div></div>

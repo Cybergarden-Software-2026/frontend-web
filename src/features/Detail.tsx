@@ -1,23 +1,88 @@
-import { useState,useEffect } from 'react';
-import type { Incident,Snapshot,Analysis } from '../domain/incidents';
-import { GROUPS,belongs,EVENT_LABELS,describeEvent,stateOf } from '../domain/incidents';
-import { Dialog,Priority,Status,Team,Sla,dateTime,Empty } from '../components/ui';
+import { useEffect, useState } from 'react';
+import type { Incident, Snapshot, Analysis } from '../domain/incidents';
+import { EVENT_LABELS, describeEvent, stateOf } from '../domain/incidents';
+import { canAssign } from '../domain/operations';
+import { Status, Team, Sla, dateTime } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { api } from '../data/api';
-export function Detail({item,snapshot,now,onClose,onAssign}:{item:Incident;snapshot:Snapshot;now:number;onClose:()=>void;onAssign?:()=>void}) {
- const [tab,setTab]=useState<'info'|'history'|'analysis'>('info');
- const [analysis,setAnalysis]=useState<Analysis|null>(null),[busy,setBusy]=useState(false),[failure,setFailure]=useState<string|null>(null);
- const [copied,setCopied]=useState(false);
- useEffect(()=>{setAnalysis(null);setFailure(null);},[item.sysId,snapshot.revision]);
- useEffect(()=>{if(tab!=='analysis'||analysis)return;let alive=true;setBusy(true);api.analysis(item.sysId).then(value=>{if(alive)setAnalysis(value);}).catch(e=>{if(alive)setFailure(e.message);}).finally(()=>{if(alive)setBusy(false);});return()=>{alive=false;};},[tab,item.sysId,snapshot.revision,analysis]);
- const history=snapshot.events.filter(e=>e.sysId===item.sysId);
- const url=snapshot.itsmUrlTemplate?.replace('{sysId}',encodeURIComponent(item.sysId)).replace('{id}',encodeURIComponent(item.id));
- const itsmUrl=url&&/^https?:\/\//i.test(url)?url:null;
- return <Dialog title={item.id} onClose={onClose} wide><div className="detail-title"><div className="detail-badges"><Priority item={item}/><Status item={item}/></div><h3>{item.header}</h3><p>{item.productName} · {item.service}</p><div className="group-tags">{GROUPS.filter(g=>belongs(item,g.id)).map(g=><span key={g.id} className={`small-tag tone-${g.tone}`}>{g.title}</span>)}</div></div>
- <div className="detail-tabbar" role="group" aria-label="Разделы инцидента">{[['info','Обзор'],['history',`История · ${history.length}`],['analysis','Помощник']].map(([id,label])=><button key={id} aria-pressed={tab===id} onClick={()=>setTab(id as typeof tab)}>{id==='analysis'&&<Icon name="spark" size={16}/>} {label}</button>)}</div>
- {tab==='info'&&<><div className="detail-grid"><section className="detail-box"><h4>Ответственные</h4><Team name={item.assignedGroupName}/>{onAssign&&!['Resolved','Closed'].includes(stateOf(item))&&<button className="button secondary" onClick={onAssign}><Icon name="userPlus" size={16}/>Назначить команду</button>}<p>{item.assignedEmployee||'Исполнитель не указан'}</p><small>Назначен {dateTime(item.lastAssignmentToTeamDateTime)}</small></section><section className="detail-box"><h4>Срок решения</h4><Sla item={item} now={now}/><small>Зарегистрирован {dateTime(item.submitDate)}</small></section></div><section className="detail-section channel-section"><h4>Источник обращения</h4><p>{item.receivingChannel||'Канал регистрации не указан'}</p><small>Канал регистрации показывает, как обнаружили проблему: средствами мониторинга, по обращению клиента или сотрудника. Данные инициатора указаны отдельно.</small></section><section className="detail-section"><h4>Описание</h4><p className="preserve-lines">{item.description||'Описание отсутствует'}</p></section>{item.solution&&<section className="detail-section"><h4>Описание решения</h4><p>{item.solution}</p><small>Может содержать предварительное решение или прошлую попытку, которая не помогла. Наличие текста не подтверждает устранение проблемы.</small></section>}<div className="detail-grid detail-attributes">{[['Сценарий',item.scenarioName],['Тип сервиса',item.serviceType],['Срочность',item.urgency],['Влияние',item.impact],['Канал регистрации',item.receivingChannel],['Инициатор',item.initiatorName],['Подстатус',item.stateReason],['Дедлайн источника',item.deadline?dateTime(item.deadline):null],['Завершение',item.completionDate?dateTime(item.completionDate):null]].map(([label,value])=><div key={String(label)}><small>{label}</small><p>{String(value||'Не указано')}</p></div>)}</div><div className="group-tags">{[[item.isNeedUp,'Нужна обработка последствий'],[item.isDouble,'Дубль'],[item.isMaster,'Мастер-инцидент'],[item.isEffect,'Причина других инцидентов'],[item.isReason,'Дочерний инцидент']].filter(([yes])=>yes).map(([,label])=><span key={String(label)} className="small-tag tone-warning">{String(label)}</span>)}</div></>}
- {tab==='history'&&(history.length?<div className="event-timeline">{history.map(event=><article key={event.eventId} className="history-entry"><span className="event-icon tone-purple"><Icon name="pulse" size={16}/></span><div><strong>{event.types.map(t=>EVENT_LABELS[t]).join(' · ')}</strong><p>{describeEvent(event)}</p><small>{dateTime(event.at)}</small></div></article>)}</div>:<Empty title="История ещё не накоплена" icon="pulse">Журнал начнёт заполняться после изменения исходного файла. Прошлые переходы статусов из снимка восстановить нельзя.</Empty>)}
- {tab==='analysis'&&<div className="analysis-detail"><div className="analysis-mode"><Icon name="spark"/><strong>Объяснение по данным инцидента</strong><span className="small-tag tone-purple">По правилам</span></div><p className="muted">Разбор опирается на текущую выгрузку. Рекомендации требуют проверки координатором.</p>{busy&&<p className="loading-text">Собираем факты…</p>}{failure&&<p role="alert">{failure}</p>}{analysis&&<><section className="detail-section"><h4>Что произошло</h4><p>{analysis.summary}</p></section><section className="detail-section"><h4>На что обратить внимание</h4>{analysis.attention.length?<ul>{analysis.attention.map(text=><li key={text}>{text}</li>)}</ul>:<p>Дополнительные признаки срочности по заданным правилам не обнаружены.</p>}</section><section className="detail-section"><h4>Команды из похожих завершённых случаев</h4>{analysis.candidates.map(candidate=><div className="candidate" key={candidate.team}><Team name={candidate.team}/><p>{candidate.reason}</p><small>Основания: {candidate.evidenceIds.join(', ')}</small></div>)}{!analysis.candidates.length&&<p>Недостаточно оснований, чтобы предложить команду.</p>}</section>{analysis.missing.length>0&&<section className="detail-section"><h4>Недостающие данные</h4><ul>{analysis.missing.map(text=><li key={text}>{text}</li>)}</ul></section>}<small className="muted">Версия снимка {analysis.revision} · {dateTime(analysis.generatedAt)} · {analysis.provider==='rules'?'Анализ по правилам':'ИИ-анализ'}</small></>}</div>}
- <div className="detail-actions"><button className="button secondary" onClick={()=>{void navigator.clipboard.writeText(item.id).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500);}).catch(()=>setFailure('Не удалось скопировать номер.'));}}><Icon name="copy" size={16}/>{copied?'Скопировано':'Копировать номер'}</button>{itsmUrl?<a className="button primary" href={itsmUrl} target="_blank" rel="noreferrer"><Icon name="monitor" size={17}/>Открыть в ITSM</a>:<span className="itsm-placeholder" title="Администратор должен указать ITSM_URL_TEMPLATE в .env">Ссылка ITSM пока не настроена</span>}</div>
- </Dialog>;
+
+export function Detail({ item, snapshot, now, onBack, backLabel, onAssign }: {
+ item: Incident; snapshot: Snapshot; now: number; onBack: () => void; backLabel: string; onAssign: () => void;
+}) {
+ const [aiOpen, setAiOpen] = useState(false), [allHistory, setAllHistory] = useState(false);
+ const [analysis, setAnalysis] = useState<Analysis | null>(null), [busy, setBusy] = useState(false);
+ const [failure, setFailure] = useState<string | null>(null), [retry, setRetry] = useState(0);
+ const [copied, setCopied] = useState(false);
+ const currentAnalysis = analysis?.revision === snapshot.revision ? analysis : null;
+ useEffect(() => {
+  if (!aiOpen) return;
+  let alive = true; setBusy(true); setFailure(null); setAnalysis(null);
+  api.analysis(item.sysId).then(value => {
+   if (!alive) return;
+   if (value.revision !== snapshot.revision) setFailure('Данные изменились. Повторите разбор актуального инцидента.');
+   else setAnalysis(value);
+  }).catch(() => { if (alive) setFailure('Не удалось подготовить разбор. Попробуйте ещё раз.'); })
+   .finally(() => { if (alive) setBusy(false); });
+  return () => { alive = false; };
+ }, [aiOpen, item.sysId, snapshot.revision, retry]);
+ useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 1800); return () => clearTimeout(timer); }, [copied]);
+ const history = snapshot.events.filter(event => event.sysId === item.sysId);
+ const displayedHistory = allHistory ? history : history.slice(0, 5);
+ const priority = ({ 4: 'P1 · Критический', 3: 'P2 · Высокий', 2: 'P3 · Средний', 1: 'P4 · Низкий' } as Record<number, string>)[item.priorityId] || item.priority || 'Приоритет не указан';
+ const rawUrl = snapshot.itsmUrlTemplate?.replace('{sysId}', encodeURIComponent(item.sysId)).replace('{id}', encodeURIComponent(item.id));
+ const itsmUrl = rawUrl && /^https?:\/\//i.test(rawUrl) ? rawUrl : null;
+ const facts = [['Продукт', item.productName], ['Сервис', item.service], ['Сценарий использования', item.scenarioName],
+  ['Тип сервиса', item.serviceType], ['Влияние', item.impact], ['Срочность', item.urgency]];
+ const flags = [[item.isNeedUp, 'Требуется устранение последствий'], [item.isDouble, 'Дубль'],
+  [item.isMaster, 'Мастер-инцидент'], [item.isEffect, 'Последствие'], [item.isReason, 'Причина']];
+
+ return <article className="incident-detail-page" aria-labelledby="incident-title" data-incident-id={item.sysId}>
+  <div className="incident-detail-layout">
+   <div className="incident-detail-main">
+    <nav className="incident-detail-toolbar" aria-label="Действия инцидента">
+     <button className="button secondary detail-back" onClick={onBack}><Icon name="left" size={16}/>{backLabel}</button>
+     <button className={`button detail-ai-toggle ${aiOpen ? 'selected' : ''}`} aria-expanded={aiOpen} aria-controls="incident-assistant" onClick={() => setAiOpen(value => !value)}>Помощь ИИ<Icon name="spark" size={16}/></button>
+    </nav>
+    <header className="surface incident-summary">
+     <h1 id="incident-title" tabIndex={-1}>{item.header || 'Инцидент без заголовка'}</h1>
+     {item.shortDescription && <p className="incident-short-description">{item.shortDescription}</p>}
+     <div className="incident-summary-meta">
+      <span className="incident-number">{item.id}<button className="icon-button copy-incident" aria-label={copied ? 'Номер скопирован' : 'Копировать номер инцидента'} title={copied ? 'Скопировано' : 'Копировать номер'} onClick={() => { void navigator.clipboard.writeText(item.id).then(() => setCopied(true)).catch(() => setFailure('Не удалось скопировать номер.')); }}><Icon name={copied ? 'check' : 'copy'} size={15}/></button></span>
+      <span className={`priority source-priority-${item.priorityId}`}>{priority}</span><Status item={item}/>
+     </div>
+    </header>
+    {aiOpen && <section className="surface incident-assistant detail-card" id="incident-assistant" aria-labelledby="assistant-title">
+     <div className="detail-card-heading"><h2 id="assistant-title"><Icon name="spark" size={18}/>Помощь координатору</h2><span className="small-tag tone-purple">{currentAnalysis?.provider === 'llm' ? 'ИИ-анализ' : 'Анализ по правилам'}</span></div>
+     {busy && <p className="detail-muted" role="status">Собираем факты и похожие случаи…</p>}
+     {failure && <div className="detail-inline-error" role="alert"><p>{failure}</p><button className="text-button" onClick={() => setRetry(value => value + 1)}>Повторить</button></div>}
+     {currentAnalysis && <><p>{currentAnalysis.summary}</p>{currentAnalysis.attention.length > 0 && <ul>{currentAnalysis.attention.map(text => <li key={text}>{text}</li>)}</ul>}
+      <h3>Команды из похожих случаев</h3>{currentAnalysis.candidates.length ? currentAnalysis.candidates.map(candidate => <div className="detail-candidate" key={candidate.team}><Team name={candidate.team}/><p>{candidate.reason}</p><small>Похожие инциденты: {candidate.evidenceIds.join(', ')}</small></div>) : <p className="detail-muted">Недостаточно похожих завершённых случаев для рекомендации.</p>}
+      {currentAnalysis.missing.length > 0 && <details><summary>Каких данных не хватает</summary><ul>{currentAnalysis.missing.map(text => <li key={text}>{text}</li>)}</ul></details>}
+      <small className="detail-muted">Рекомендации требуют проверки координатором.</small></>}
+    </section>}
+    <section className="surface detail-card incident-problem" aria-labelledby="problem-title">
+     <h2 id="problem-title">Описание проблемы</h2><p className="preserve-lines">{item.description || 'Описание пока не указано.'}</p>
+     <h3>Затронутая система</h3><dl className="incident-system-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Не указано'}</dd></div>)}</dl>
+    </section>
+    <section className="surface detail-card incident-solution" aria-labelledby="solution-title">
+     <h2 id="solution-title">Описание решения</h2><p className="preserve-lines">{item.solution || 'Описание решения пока не заполнено.'}</p>
+     <p className="detail-explanation">Текст может описывать предварительное решение или прошлую попытку, которая не помогла. Факт устранения определяется статусом.</p>
+    </section>
+    <section className="surface detail-card incident-registration" aria-labelledby="registration-title"><h2 id="registration-title">Регистрация инцидента</h2>
+     <dl className="incident-registration-facts">{[['Канал регистрации', item.receivingChannel], ['Инициатор', item.initiatorName], ['Подстатус', item.stateReason], ['Дата завершения', item.completionDate ? dateTime(item.completionDate) : null]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Не указано'}</dd></div>)}</dl>
+     {flags.some(([value]) => value) && <div className="group-tags">{flags.filter(([value]) => value).map(([, label]) => <span className="small-tag tone-warning" key={String(label)}>{label}</span>)}</div>}
+    </section>
+   </div>
+   <aside className="incident-detail-aside" aria-label="Координация инцидента">
+    <section className="surface detail-card incident-owner"><h2>Ответственные</h2><Team name={item.assignedGroupName}/><p>{item.assignedEmployee || 'Исполнитель не указан'}</p>
+     <small className="detail-muted">Назначен {dateTime(item.lastAssignmentToTeamDateTime)}</small>
+     {canAssign(item) && <button className="button secondary" onClick={onAssign}><Icon name="userPlus" size={16}/>{item.assignedGroupName ? 'Сменить команду' : 'Назначить команду'}</button>}
+    </section>
+    <section className={`surface detail-card incident-deadline state-${stateOf(item)}`}><h2>Срок решения</h2><Sla item={item} now={now}/><small className="detail-muted">Зарегистрирован {dateTime(item.submitDate)}</small>{itsmUrl && <a className="button secondary" href={itsmUrl} target="_blank" rel="noreferrer"><Icon name="monitor" size={16}/>Открыть в ITSM</a>}</section>
+    <section className="surface detail-card incident-history" aria-labelledby="history-title"><div className="detail-card-heading"><h2 id="history-title">История изменений</h2><span className="detail-history-count">{history.length}</span></div>
+     {history.length ? <><ol>{displayedHistory.map(event => <li key={event.eventId}><span className={`history-point ${event.types.some(type => ['resolved', 'closed'].includes(type)) ? 'done' : ''}`}/><div><strong>{event.types.map(type => EVENT_LABELS[type] || 'Изменение').join(' · ')}</strong><p>{describeEvent(event)}</p><time dateTime={event.at}>{dateTime(event.at)}</time></div></li>)}</ol>{history.length > 5 && <button className="text-button" onClick={() => setAllHistory(value => !value)}>{allHistory ? 'Свернуть историю' : `Вся история · ${history.length}`}</button>}</> : <p className="detail-muted">Изменений пока нет. Новые события появятся здесь автоматически.</p>}
+    </section>
+   </aside>
+  </div>
+ </article>;
 }

@@ -1,11 +1,7 @@
 # Шрифты МТС
 
-В интерфейсе используются MTS Compact Regular/Medium и MTS Wide Medium/Bold.
-Источник: preload-ссылки официального сайта https://mts.ru/, проверенные 20.11.2026.
+Основной интерфейс использует MTS Text Regular/Medium/Bold; логотип — MTS Compact; крупные фирменные заголовки и декоративные клавиши — MTS Wide. Номера, таймеры и поля ввода также используют шрифты МТС.
 
-- https://static.mts.ru/mts_rf/images/fonts/v1/MTSCompact/MTSCompact-Regular.woff2
-- https://static.mts.ru/mts_rf/images/fonts/v1/MTSCompact/MTSCompact-Medium.woff2
-- https://static.mts.ru/mts_rf/images/fonts/v1/MTSWide/MTSWide-Medium.woff2
-- https://static.mts.ru/mts_rf/images/fonts/v1/MTSWide/MTSWide-Bold.woff2
+Источник текущих файлов — предоставленный пользователем архив `mts_shrift.7z`, каталог `ШРИФТ/Web`. В проект скопированы только нужные WOFF2, объявленные в `src/fonts.css`; внешние запросы для загрузки шрифтов не требуются.
 
-Файлы размещены локально для работы без внешних запросов. Шрифты принадлежат их правообладателям; это фирменные ресурсы МТС, а не библиотека под открытой лицензией.
+В `public/fonts/` находятся семейства MTSText, MTSCompact и MTSWide с начертаниями Regular (400), Medium (500), Bold (700). Фирменные ресурсы принадлежат правообладателям МТС.
