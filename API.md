@@ -101,6 +101,8 @@ Pass `page` explicitly. `GET /incidents` also has a cursor mode with a different
 | `sla` | For active work, `late` means the deadline is at or before the current time, `soon` means up to 30 minutes remain, inclusive, and `normal` means more time remains. `research`, `restored`, and `closed` correspond to incident states. `unknown` means an active incident has no deadline or the state is unknown. |
 | `sort` | Defaults to `priority`. Also accepts `deadline` and `newest`. The first two put incidents that require attention first. Within that set, `priority` sorts from highest to lowest priority, then by earliest deadline. `deadline` sorts from earliest to latest deadline, with missing deadlines last. `newest` sorts by submission date, newest first. |
 
+Frontend display: a `Research` incident with a valid `deadline` shows a live countdown, including an overdue value. This does not change the backend `sla=research` classification or its filter semantics. `Resolved` and `Closed` show `00:00:00` with a stopped label, retaining the original deadline as a planned date. A missing deadline shows `--:--:--`. No backend route or schema change is required.
+
 In the web queue, `critical` and `high` select priorities 4 and 3 respectively, in state `Assigned` or `WorkInProgress`. The `coordinators` group also includes incidents in `Research` assigned to the configured coordinator team. Use the queue response's `total` to get the count for a particular filter. The aggregate `snapshot.groups` also applies the server's display rules for recently resolved cases.
 
 ```bash
