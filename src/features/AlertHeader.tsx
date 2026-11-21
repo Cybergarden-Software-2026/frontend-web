@@ -2,6 +2,7 @@ import { useEffect,useMemo,useRef,useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { Incident } from '../domain/incidents';
 import { headerAlerts } from '../domain/operations';
+import { headerCardCapacity } from '../domain/headerLayout';
 import { Icon } from '../components/Icon';
 import { detailSla } from './detailPresentation';
 
@@ -26,7 +27,7 @@ export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStat
  const [reduced,setReduced]=useState(()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches);
  const alertIds=alerts.map(a=>a.item.sysId).join('|'),hasAlerts=alerts.length>0;
  useEffect(()=>{const query=window.matchMedia('(prefers-reduced-motion: reduce)');const update=()=>setReduced(query.matches);query.addEventListener('change',update);return()=>query.removeEventListener('change',update);},[]);
- useEffect(()=>{const element=deck.current;if(!element)return;const measure=()=>setCapacity(Math.max(1,Math.min(3,Math.floor((element.clientWidth+12)/212))));const observer=new ResizeObserver(measure);observer.observe(element);measure();return()=>observer.disconnect();},[hasAlerts]);
+ useEffect(()=>{const element=deck.current;if(!element)return;const measure=()=>setCapacity(headerCardCapacity(element.clientWidth));const observer=new ResizeObserver(measure);observer.observe(element);measure();return()=>observer.disconnect();},[hasAlerts]);
  const pageCount=Math.max(1,Math.ceil(alerts.length/capacity)),currentPage=Math.min(page,pageCount-1);
  useEffect(()=>setPage(0),[alertIds,capacity]);
  useEffect(()=>{if(pageCount<2||paused||reduced)return;const timer=setInterval(()=>{if(document.visibilityState==='visible')setPage(value=>(value+1)%pageCount);},10000);return()=>clearInterval(timer);},[pageCount,paused,reduced,alertIds,currentPage]);
