@@ -85,3 +85,17 @@
 .chart-incident-heading{display:flex;align-items:center;justify-content:space-between;gap:9px}.chart-incident-heading>strong{font-size:12px;color:#5d419d}.chart-incident-heading>span{font-size:10px;color:#655d74}.chart-incident-heading>.is-critical{color:#a61c43;font-weight:700}
 .chart-incident-details h3{font-size:13px;line-height:1.5;margin:7px 0 10px;overflow-wrap:anywhere}.chart-incident-details dl{display:grid;gap:8px;margin:0}.chart-incident-details dl>div{display:grid;grid-template-columns:106px minmax(0,1fr);gap:12px;font-size:11px;line-height:1.5}.chart-incident-details dt{color:#776d84}.chart-incident-details dd{margin:0;color:#231e32;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .chart-incident-kpi{display:inline-block;font-size:10px;padding:2px 6px;border-radius:6px;background:#f0edf4;color:#655d74}.chart-incident-kpi.is-met{background:#e6f4ec;color:#206650}.chart-incident-kpi.is-missed{background:#fcebf0;color:#a61c43}
+
+/* Compact analytics workspace. */
+.shift-statistics{min-height:calc(100dvh - 225px);grid-template-rows:auto auto auto minmax(340px,1fr);align-content:stretch}
+.shift-export>span{font-weight:700;color:#211a2e}
+.shift-export .button,.shift-range .button{border-color:#ed0032;background:#fff;color:#000}
+.shift-export .button .icon{color:#ed0032}
+.shift-export .button:hover,.shift-range .button:hover{border-color:#ce002b;background:#fff;color:#000}
+.shift-personal-layout{grid-template-columns:minmax(0,2.3fr) minmax(290px,1fr);align-items:stretch}
+.shift-general{display:flex;flex-direction:column;align-self:stretch}
+.shift-general dl{display:flex;flex-direction:column;justify-content:space-evenly;flex:1;margin-top:15px}
+.shift-general dl>div{padding:18px 0}.shift-general dt{font-size:13px}.shift-general dd{font-size:28px}
+.shift-general .shift-general-status{margin-top:auto;padding-top:16px}
+@media(max-width:1250px){.shift-personal-layout{grid-template-columns:1fr}.shift-general{min-height:280px}.shift-general dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:14px}.shift-general dl>div{padding:15px 0}}
+@media(max-width:650px){.shift-statistics{min-height:0;grid-template-rows:auto}.shift-general dl{grid-template-columns:1fr;gap:0}.shift-general dl>div{padding:14px 0}.shift-general{min-height:320px}}
