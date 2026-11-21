@@ -64,6 +64,9 @@
 .personal-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .personal-chart .shift-section-heading{margin-bottom:7px}.personal-chart>p{font-size:11px;color:#776d84;line-height:1.5;margin:0 0 10px}
 .personal-chart-demo{font-size:10px;color:#79501b;background:#fff0d6;padding:3px 7px;border-radius:6px}
+.personal-chart-reassignment{grid-column:1/-1}
+.personal-chart-reassignment>svg{max-width:740px;margin-inline:auto}
+.reassignment-chart-point{fill:#7254a8}
 .personal-chart>svg{display:block;width:100%;height:auto;overflow:visible;font-family:var(--font)}.personal-chart svg text{font-size:10px;fill:#776d84}
 .personal-chart-grid{stroke:#ece5f2;stroke-width:1}.personal-chart-bar{fill:#9376c7}.personal-chart-bar:hover{fill:#5d419d}
 .personal-chart-line{stroke:#8b6eb9;stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}.personal-chart-point{stroke:white;stroke-width:1.5}

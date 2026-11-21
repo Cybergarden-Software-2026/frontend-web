@@ -16,7 +16,8 @@ Status reflects the committed implementation in the owning repository. Productio
 | `GET /api/v1/notifications` and `PUT /api/v1/notifications/{notification_id}/read` | `backend` | Implemented |
 | `GET /api/v1/openapi.json`, `GET /api/docs`, `GET /redoc`, and `GET /docs/oauth2-redirect` | `backend` | Implemented |
 | `GET /health` and `GET /health/ready` | `backend` | Implemented |
-| Live shift assignments and KPI via `GET /api/v1/statistics/shift` | `backend` | Implemented |
+| Live shift assignments, coordination KPI and intervals between team assignments via `GET /api/v1/statistics/shift` | `backend` | Implemented |
+| Separate chart for the time between team assignments | `frontend-web` | Implemented |
 | Shared mass-problem membership and exclusions via `GET/PATCH /api/v1/problems/clusters` | `backend` | Implemented |
 | Shift PDF/Excel export and sequential group assignment | `frontend-web` | Implemented |
 | Atomic bulk team assignment, individual coordinator attribution, and LLM-powered analysis | `backend` | Not implemented |
@@ -315,12 +316,15 @@ Implemented by `frontend-web`: the shared header includes Assigned, WorkInProgre
 curl -fsSG "$API/statistics/shift" \
   --data-urlencode 'from=2026-11-21T06:00:00+03:00' \
   --data-urlencode 'to=2026-11-21T18:00:00+03:00' \
-  | jq '{transferred, critical, measured, averageMs, kpiPercent}'
+  | jq '{transferred, critical, measured, averageMs, kpiPercent,
+          reassignments: ([.transfers[] | select(.reassignmentMs != null)] | length)}'
 ```
 
 The response has `source: "api"`, the shift label in `coordinator`, `start`, `end`, `transferred`, `critical`, `averageMs`, `measured`, `kpiMet`, `kpiPercent`, and `transfers`. Each transfer includes the event ID, incident ID, title, team, priority, and assignment time. Timestamps and durations use milliseconds. Waiting start, duration and KPI are `null` when historical data cannot establish a wait. KPI means assignment strictly earlier than 10 minutes after waiting began. Unknown durations do not affect the mean or denominator. The figures are shared for the shift.
 
-The web client combines the shift response with live queue numbers calculated from the snapshot and available event history. It renders charts and exports PDF/Excel using these data.
+Each transfer also has `reassignmentMs` (integer or `null`). It measures the milliseconds from `previous.lastAssignmentToTeamDateTime` to the recorded dashboard assignment when moving between two different resolution teams. Coordinator, unassigned and technical groups are excluded. A missing, invalid or later previous timestamp yields `null`. The field is displayed in a separate chart. `measured`, `averageMs`, `kpiMet` and `kpiPercent` continue to use coordination wait durations.
+
+The web client combines the shift response with live queue numbers calculated from the snapshot and available event history. The shift view includes charts and a PDF/Excel export.
 
 ## Team directory presentation (frontend-web)
 
