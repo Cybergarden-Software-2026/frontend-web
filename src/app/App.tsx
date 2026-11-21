@@ -3,6 +3,7 @@ import { useIncidents } from '../data/useIncidents';
 import { useMassClusters } from '../data/useMassClusters';
 import { useAlertSignal } from '../data/useAlertSignal';
 import { api } from '../data/api';
+import type { CoordinatorIdentity } from '../data/api';
 import { EVENT_READ_KEY as readKey } from '../data/workspaceSessionCache';
 import { Icon } from '../components/Icon';
 import { ConnectionNotice } from '../components/ConnectionNotice';
@@ -19,11 +20,19 @@ import { IncidentDashboard } from '../features/IncidentDashboard';
 import { AssignTeam } from '../features/AssignTeam';
 const pages:{id:Page;label:string;icon:string}[]=[{id:'incidents',label:'Инциденты',icon:'grid'},{id:'events',label:'События',icon:'pulse'},{id:'teams',label:'Команды',icon:'people'},{id:'analytics',label:'Аналитика',icon:'chart'},{id:'problems',label:'Массовые сбои',icon:'layers'}];
 const DEMO=import.meta.env.VITE_DEMO_API==='true';
-interface AppProps { sessionRequired: boolean; onSignOut?: () => Promise<void>; }
+interface AppProps {
+ sessionRequired: boolean;
+ coordinator?: CoordinatorIdentity;
+ onSignOut?: () => Promise<void>;
+}
 
-export function App({ sessionRequired, onSignOut }: AppProps) {
+export function App({ sessionRequired, coordinator, onSignOut }: AppProps) {
  const data=useIncidents(!sessionRequired);const {snapshot,connected,checked,online,loading,historyEpoch,refresh}=data;
  const connecting=online&&!checked;
+ const profileName = coordinator?.displayName || coordinator?.login || 'Дежурная смена';
+ const initials = coordinator
+  ? profileName.trim().split(/\s+/).slice(0, 2).map(word => Array.from(word)[0]).join('').toUpperCase()
+  : 'КС';
  const items=snapshot?.items??[];
  const [route,setRoute]=useState(()=>readRoute(location.hash));
  const {page,incidentId:detailId}=route;
@@ -82,7 +91,7 @@ export function App({ sessionRequired, onSignOut }: AppProps) {
  function selectTeam(name:string){setTeamContext({name,token:Date.now()});navigate('incidents');}
  async function simulate(action:string){setBusy(action);setActionError(null);try{data.accept(await api.simulate(action));if(action!=='reset')setDemoOpen(false);}catch(e){setActionError(e instanceof Error?e.message:'Не удалось выполнить сценарий');}finally{setBusy(null);}}
  async function importFile(file:File){setBusy('import');setActionError(null);try{const value=JSON.parse(await file.text());data.accept(await api.import(value));}catch(e){setActionError(e instanceof Error?e.message:'Ошибка импорта');}finally{setBusy(null);if(uploadRef.current)uploadRef.current.value='';}}
- return <div className={`app page-${page} ${detailId?'page-incident-detail':''}`}><a className="skip-link" href="#main" onClick={e=>{e.preventDefault();document.getElementById('main')?.focus();}}>К содержанию</a><aside className="sidebar"><a className="brand" href="#incidents"><img src="/mark.svg" width="38" height="38" alt=""/><span>Under<span className="brand-accent">Ctrl</span><small>Координация IT</small></span></a><nav aria-label="Основное меню"><p className="nav-caption">РАБОЧАЯ ОБЛАСТЬ</p>{pages.map(link=><a key={link.id} className={`nav-item ${page===link.id?'selected':''}`} aria-current={page===link.id?'page':undefined} href={'#'+link.id}><Icon name={link.icon}/><span>{link.label}</span>{link.id==='events'&&unread>0&&<span className="nav-count">{unread}</span>}{link.id==='problems'&&clusters.length>0&&<span className="nav-count">{clusters.length}</span>}</a>)}</nav><div className="sidebar-bottom"><div className="sidebar-tools">{onSignOut&&<button type="button" className="icon-button" aria-label="Выйти из аккаунта" title="Выйти" disabled={signingOut} onClick={()=>void signOut()}><Icon name="logout" size={15}/></button>}{DEMO&&<button className="text-button" onClick={()=>setDemoOpen(true)}><Icon name="flask" size={13}/>Симуляция</button>}<button className="icon-button" aria-label="Обновить данные" title={connected?'Соединение активно':connecting?'Подключаемся…':'Нет соединения'} onClick={()=>void refresh()}><Icon name="refresh" size={15}/></button><a className="icon-button" href="#settings" aria-label="Настройки"><Icon name="settings" size={15}/></a></div><div className="sidebar-profile"><span className="avatar">КС</span><span><strong>Дежурная смена</strong><small>Координатор</small></span></div></div></aside>
+ return <div className={`app page-${page} ${detailId?'page-incident-detail':''}`}><a className="skip-link" href="#main" onClick={e=>{e.preventDefault();document.getElementById('main')?.focus();}}>К содержанию</a><aside className="sidebar"><a className="brand" href="#incidents"><img src="/mark.svg" width="38" height="38" alt=""/><span>Under<span className="brand-accent">Ctrl</span><small>Координация IT</small></span></a><nav aria-label="Основное меню"><p className="nav-caption">РАБОЧАЯ ОБЛАСТЬ</p>{pages.map(link=><a key={link.id} className={`nav-item ${page===link.id?'selected':''}`} aria-current={page===link.id?'page':undefined} href={'#'+link.id}><Icon name={link.icon}/><span>{link.label}</span>{link.id==='events'&&unread>0&&<span className="nav-count">{unread}</span>}{link.id==='problems'&&clusters.length>0&&<span className="nav-count">{clusters.length}</span>}</a>)}</nav><div className="sidebar-bottom"><div className="sidebar-tools">{onSignOut&&<button type="button" className="icon-button" aria-label="Выйти из аккаунта" title="Выйти" disabled={signingOut} onClick={()=>void signOut()}><Icon name="logout" size={15}/></button>}{DEMO&&<button className="text-button" onClick={()=>setDemoOpen(true)}><Icon name="flask" size={13}/>Симуляция</button>}<button className="icon-button" aria-label="Обновить данные" title={connected?'Соединение активно':connecting?'Подключаемся…':'Нет соединения'} onClick={()=>void refresh()}><Icon name="refresh" size={15}/></button><a className="icon-button" href="#settings" aria-label="Настройки"><Icon name="settings" size={15}/></a></div><div className="sidebar-profile"><span className="avatar" aria-hidden="true">{initials}</span><span className="profile-identity"><strong title={profileName}>{profileName}</strong><small title={coordinator?.login}>Координатор{coordinator && ` · ${coordinator.login}`}</small></span></div></div></aside>
  <div className="workspace" ref={workspaceRef}>
  <main className="main" id="main" tabIndex={-1}>{(!online||checked&&!connected)&&<ConnectionNotice online={online} snapshot={snapshot} loading={loading} onRetry={refresh}/>}{snapshot?.source.error&&<div className="notice notice-warning" role="alert"><Icon name="alert"/><div><strong>Источник данных не обновляется</strong><p>{snapshot.source.error}. Предыдущий корректный снимок сохранён.</p></div></div>}{actionError&&<div className="notice notice-warning" role="alert"><Icon name="alert"/><p>{actionError}</p><button className="icon-button" aria-label="Скрыть сообщение" onClick={()=>setActionError(null)}><Icon name="close"/></button></div>}
  <AlertHeader items={items} now={clock} onOpen={openIncident} onJournal={()=>navigate('events')} unread={unread} signalSequence={signalSequence} audioStatus={audioStatus}/>

@@ -2,28 +2,54 @@ import { useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { Icon } from '../components/Icon';
 import { ApiError } from '../data/api';
+import type { CoordinatorCredentials } from '../data/api';
+
+type LoginMethod = 'password' | 'key';
 
 interface LoginProps {
  notice: string | null;
  check: 'pending' | 'failed' | 'complete';
+ accounts: boolean;
  onRetry: () => void;
- onLogin: (key: string, remember: boolean) => Promise<void>;
+ onLogin: (credentials: CoordinatorCredentials) => Promise<void>;
 }
 
-export function LoginPage({ notice, check, onRetry, onLogin }: LoginProps) {
- const [key, setKey] = useState(''), [visible, setVisible] = useState(false), [remember, setRemember] = useState(true);
+export function LoginPage({ notice, check, accounts, onRetry, onLogin }: LoginProps) {
+ const [method, setMethod] = useState<LoginMethod>('password');
+ const [login, setLogin] = useState('');
+ const [secret, setSecret] = useState('');
+ const [visible, setVisible] = useState(false);
+ const [remember, setRemember] = useState(true);
  const [error, setError] = useState<string | null>(null);
  const [pending, setPending] = useState(false);
+ const byPassword = accounts && method === 'password';
+ const credentialId = byPassword ? 'coordinator-password' : 'coordinator-key';
+ const credentialName = byPassword ? 'пароль' : 'ключ';
+ const ready = byPassword ? Boolean(login.trim() && secret) : Boolean(secret.trim());
+ const errorDescription = error || notice ? 'login-error' : undefined;
+
+ function select(next: LoginMethod) {
+  setMethod(next);
+  setSecret('');
+  setVisible(false);
+  setError(null);
+ }
+
  async function submit(event: FormEvent) {
   event.preventDefault();
-  if (!key.trim() || pending || check !== 'complete') return;
+  if (!ready || pending || check !== 'complete') return;
   setError(null);
   setPending(true);
-  try { await onLogin(key.trim(), remember); }
+  const credentials = byPassword
+   ? { login: login.trim(), password: secret, remember }
+   : { key: secret.trim(), remember };
+  try { await onLogin(credentials); }
   catch (error) {
-   setError(error instanceof ApiError && error.status === 401
-    ? 'Неверный ключ координатора.'
-    : 'Не удалось выполнить вход. Попробуйте ещё раз.');
+   if (error instanceof ApiError && error.status === 401) {
+    setError(accounts ? 'Неверные данные для входа.' : 'Неверный ключ координатора.');
+   } else {
+    setError('Не удалось выполнить вход. Попробуйте ещё раз.');
+   }
   } finally { setPending(false); }
  }
  return <main className="login-page">
@@ -43,13 +69,60 @@ export function LoginPage({ notice, check, onRetry, onLogin }: LoginProps) {
       <button type="button" className="button login-submit" onClick={onRetry}>Повторить</button>
      </>}
      {check === 'complete' && <>
-     <p className="login-intro">Введите ключ координатора, чтобы продолжить работу.</p>
-     {(notice || error) && <p className="login-error" role="alert" id="login-error">{error || notice}</p>}
-     <label className="login-field" htmlFor="coordinator-key">Ключ координатора</label>
-     <div className="login-password"><input id="coordinator-key" name="coordinator-key" type={visible ? 'text' : 'password'} value={key} onChange={event => setKey(event.target.value)} placeholder="Введите ключ" autoComplete="off" spellCheck={false} autoCapitalize="none" required disabled={pending} aria-invalid={Boolean(error)} aria-describedby={error || notice ? 'login-error' : undefined}/><button type="button" className="icon-button" aria-label={visible ? 'Скрыть ключ' : 'Показать ключ'} aria-pressed={visible} disabled={pending} onClick={() => setVisible(value => !value)}><Icon name={visible ? 'eyeOff' : 'eye'} size={19}/></button></div>
-     <label className="login-remember"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} disabled={pending}/><span>Запомнить на этом устройстве</span></label>
-     <button type="submit" className="button login-submit" disabled={!key.trim() || pending}>{pending ? 'Входим…' : 'Войти'}</button>
-     <p className="login-note">Ключ выдаёт администратор.</p>
+      <p className="login-intro">{accounts ? 'Войдите в рабочее пространство координатора.' : 'Введите ключ координатора, чтобы продолжить работу.'}</p>
+      {errorDescription && <p className="login-error" role="alert" id={errorDescription}>{error || notice}</p>}
+      {accounts && <fieldset className="login-methods" disabled={pending}>
+       <legend className="sr-only">Способ входа</legend>
+       <label>
+        <input className="sr-only" type="radio" name="login-method" value="password" checked={method === 'password'} onChange={() => select('password')} />
+        <span>Логин и пароль</span>
+       </label>
+       <label>
+        <input className="sr-only" type="radio" name="login-method" value="key" checked={method === 'key'} onChange={() => select('key')} />
+        <span>Ключ доступа</span>
+       </label>
+      </fieldset>}
+      {byPassword && <label className="login-user">
+       <span className="login-field">Логин</span>
+       <input
+        id="coordinator-login"
+        name="username"
+        autoComplete="username"
+        value={login}
+        onChange={event => setLogin(event.target.value)}
+        spellCheck={false}
+        autoCapitalize="none"
+        required
+        disabled={pending}
+        aria-invalid={Boolean(error)}
+        aria-describedby={errorDescription}
+       />
+      </label>}
+      <label className="login-field" htmlFor={credentialId}>{byPassword ? 'Пароль' : 'Ключ координатора'}</label>
+      <div className="login-password">
+       <input
+        key={credentialId}
+        id={credentialId}
+        name={byPassword ? 'password' : 'coordinator-key'}
+        type={visible ? 'text' : 'password'}
+        autoComplete={byPassword ? 'current-password' : 'off'}
+        value={secret}
+        onChange={event => setSecret(event.target.value)}
+        placeholder={byPassword ? undefined : 'Введите ключ'}
+        spellCheck={false}
+        autoCapitalize="none"
+        required
+        disabled={pending}
+        aria-invalid={Boolean(error)}
+        aria-describedby={errorDescription}
+       />
+       <button type="button" className="icon-button" aria-label={`${visible ? 'Скрыть' : 'Показать'} ${credentialName}`} aria-pressed={visible} disabled={pending} onClick={() => setVisible(value => !value)}>
+        <Icon name={visible ? 'eyeOff' : 'eye'} size={19}/>
+       </button>
+      </div>
+      <label className="login-remember"><input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} disabled={pending}/><span>Запомнить на этом устройстве</span></label>
+      <button type="submit" className="button login-submit" disabled={!ready || pending}>{pending ? 'Входим…' : 'Войти'}</button>
+      <p className="login-note">{accounts ? 'Данные для входа выдаёт администратор.' : 'Ключ выдаёт администратор.'}</p>
      </>}
     </form>
    </section>

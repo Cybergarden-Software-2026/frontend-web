@@ -43,14 +43,32 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await responseFor(path, init)).json();
 }
 
+export type CoordinatorMode = 'accounts' | 'shared-key' | 'none';
+export type CoordinatorCredentials =
+  | { key: string; remember: boolean }
+  | { login: string; password: string; remember: boolean };
+
+export interface CoordinatorIdentity {
+  login: string;
+  displayName: string;
+}
+
 export interface CoordinatorSession {
   required: boolean;
   authenticated: boolean;
+  mode?: CoordinatorMode;
+  coordinator?: CoordinatorIdentity;
 }
 
 async function coordinatorSession(init: RequestInit): Promise<CoordinatorSession> {
   const value = await request<CoordinatorSession | null>(COORDINATOR_SESSION_PATH, init);
   if (typeof value?.required !== 'boolean' || typeof value.authenticated !== 'boolean') {
+    throw new Error('Сервер вернул некорректное состояние входа');
+  }
+  const { mode, coordinator } = value;
+  if ((mode !== undefined && !['accounts', 'shared-key', 'none'].includes(mode))
+    || (coordinator !== undefined && (typeof coordinator?.login !== 'string' || typeof coordinator.displayName !== 'string'))
+    || (mode === 'accounts' && value.authenticated && !coordinator)) {
     throw new Error('Сервер вернул некорректное состояние входа');
   }
   return value;
@@ -86,8 +104,8 @@ async function eventPage(path: string, limit: number, beforeId?: string, signal?
 
 export const api = {
   coordinatorSession: (signal?: AbortSignal) => coordinatorSession({ signal }),
-  async signInCoordinator(key: string, remember: boolean, signal?: AbortSignal) {
-    const session = await coordinatorSession({ method: 'POST', body: JSON.stringify({ key, remember }), signal });
+  async signInCoordinator(credentials: CoordinatorCredentials, signal?: AbortSignal) {
+    const session = await coordinatorSession({ method: 'POST', body: JSON.stringify(credentials), signal });
     sessionVersion++;
     return session;
   },
