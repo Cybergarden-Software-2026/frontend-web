@@ -1,5 +1,6 @@
-import type { QueuePage, QueueQuery } from '../domain/operations';
-import { coordinatorAuth, signOut } from './coordinatorSession.ts';
+import type { ProblemCluster, QueuePage, QueueQuery } from '../domain/operations';
+import type { MassExclusion } from '../domain/massProblems.ts';
+import type { PersonalStatistics } from '../domain/personalStatistics.ts';
 import type { Analysis } from '../domain/incidents';
 import { normalizeIncident, normalizeSnapshot, normalizeEvent, type WireEvent, type WireSnapshot } from './wire.ts';
 
@@ -29,6 +30,30 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const snapshotRequest = async (path: string, init?: RequestInit) =>
   normalizeSnapshot(await request<WireSnapshot>(path, init));
 
+export interface MassClusters {
+  revision: number;
+  items: ProblemCluster[];
+  exclusions: MassExclusion[];
+}
+
+export type MassEdit =
+  | { action: 'add'; groupId: string; sysIds: string[] }
+  | { action: 'exclude'; groupId: string; sysId: string }
+  | { action: 'restore'; sysId: string };
+
+interface WireIncidentDetail {
+  incident: WireSnapshot['items'][number];
+  revision: number;
+  details?: { isPresent: boolean };
+}
+
+async function eventPage(path: string, limit: number, beforeId?: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (beforeId) params.set('beforeId', beforeId);
+  const page = await request<{ items: WireEvent[]; nextCursor?: string | null }>(path + '?' + params, { signal });
+  return { items: page.items.map(normalizeEvent), nextCursor: page.nextCursor ?? null };
+}
+
 export const api = {
   snapshot: () => snapshotRequest('/snapshot?view=web'),
   async incidents(query: QueueQuery): Promise<QueuePage> {
@@ -39,28 +64,34 @@ export const api = {
     const page = await request<QueuePage>('/incidents?' + params);
     return { ...page, items: page.items.map(normalizeIncident) };
   },
-  async events(beforeId?:string,signal?:AbortSignal) {
-    const params=new URLSearchParams({limit:'200'});
-    if(beforeId)params.set('beforeId',beforeId);
-    const page=await request<{items:WireEvent[];nextCursor?:string|null}>('/events?'+params,{signal});
-    return {items:page.items.map(normalizeEvent),nextCursor:page.nextCursor??null};
+  async incident(key: string, signal?: AbortSignal) {
+    const { incident: raw, revision, details } = await request<WireIncidentDetail>(
+      '/incidents/' + encodeURIComponent(key) + '?view=web', { signal },
+    );
+    return { incident: normalizeIncident(raw), revision, isPresent: details?.isPresent ?? true };
   },
+  events: (beforeId?: string, signal?: AbortSignal) => eventPage('/events', 200, beforeId, signal),
+  incidentEvents: (key: string, beforeId?: string, signal?: AbortSignal) =>
+    eventPage('/incidents/' + encodeURIComponent(key) + '/events', 3, beforeId, signal),
   teams: () => request<{ items: { name: string; activeCount: number }[] }>('/teams'),
-  async assign(id: string, team: string, expectedRevision: number, token?: string) {
-    const saved = coordinatorAuth.getSnapshot().session?.token;
-    const key = token ?? saved;
-    try {
-      return await snapshotRequest(`/incidents/${encodeURIComponent(id)}/assignment`, {
-        method: 'POST', headers: key ? { Authorization: `Bearer ${key}` } : undefined,
-        body: JSON.stringify({ team, expectedRevision }),
-      });
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401 && key && key === coordinatorAuth.getSnapshot().session?.token) {
-        signOut('Ключ больше не действует или указан неверно. Введите ключ координатора заново.');
-      }
-      throw error;
-    }
+  assign: (id: string, team: string, expectedRevision: number) =>
+    snapshotRequest('/incidents/' + encodeURIComponent(id) + '/assignment', {
+      method: 'POST',
+      body: JSON.stringify({ team, expectedRevision }),
+    }),
+  shiftStatistics(from: number, to: number, signal?: AbortSignal) {
+    const params = new URLSearchParams({
+      from: new Date(from).toISOString(),
+      to: new Date(to).toISOString(),
+    });
+    return request<PersonalStatistics>('/statistics/shift?' + params, { signal });
   },
+  massClusters: (signal?: AbortSignal) => request<MassClusters>('/problems/clusters', { signal }),
+  editMassClusters: (edit: MassEdit, expectedRevision: number) =>
+    request<MassClusters>('/problems/clusters', {
+      method: 'PATCH',
+      body: JSON.stringify({ ...edit, expectedRevision }),
+    }),
   analysis: (id: string) => request<Analysis>(`/incidents/${encodeURIComponent(id)}/analysis`),
   simulate: (action: string) => snapshotRequest('/demo', { method: 'POST', body: JSON.stringify({ action }) }),
   import: (items: unknown) => snapshotRequest('/incidents', { method: 'PUT', body: JSON.stringify(items) }),
