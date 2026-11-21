@@ -132,15 +132,15 @@ test('simulation inputs control header eligibility without modifying the source 
 });
 
 
-test('header sound starts below 20 percent while queue SLA coloring keeps its 30 percent threshold',async()=>{
+test('header sound and queue SLA coloring start strictly below 20 percent',async()=>{
  const {headerAlerts}=await import('../src/domain/operations.ts');
  const {displaySlaKind}=await import('../src/domain/deadlineDisplay.ts');
  const tracker=new AlertSignalTracker();tracker.update([],now);
  for(const minutes of [30,29,21,20]){
   const record={...item,priorityId:2,assignedGroupName:'Resolution team',submitDate:new Date(now-(100-minutes)*60_000).toISOString(),deadline:new Date(now+minutes*60_000).toISOString()};
   assert.equal(headerAlerts([record],now).length,0);assert.equal(tracker.update([record],now),false);
-  assert.equal(displaySlaKind(record,now),minutes<30?'soon':'normal');
+  assert.equal(displaySlaKind(record,now),minutes<20?'soon':'normal');
  }
  const record={...item,priorityId:2,assignedGroupName:'Resolution team',submitDate:new Date(now-81*60_000).toISOString(),deadline:new Date(now+19*60_000).toISOString()};
- assert.match(headerAlerts([record],now)[0].reason,/20%/);assert.equal(tracker.update([record],now),true);
+ assert.equal(headerAlerts([record],now)[0].reason,'Истекает');assert.equal(tracker.update([record],now),true);
 });

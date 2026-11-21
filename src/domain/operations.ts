@@ -37,7 +37,7 @@ export function headerAlerts(items:Incident[],now:number):HeaderAlert[] {
   if(!critical&&!waiting&&!nearDeadline)return [];
   const kind:HeaderAlert['kind']=critical?'critical':waiting?'waiting':'deadline';
   const tone:HeaderAlert['tone']=critical?'critical':'warning';
-  const reason=critical?'Критический инцидент':waiting?'Ожидает распределения больше 8 минут':(ratio??1)<=0?'Срок решения истёк':'Осталось меньше 20% срока';
+  const reason=critical?'Критический инцидент':waiting?'Ожидает распределения больше 8 минут':(ratio??1)<=0?'Срок решения истёк':'Истекает';
   return [{item,tone,kind,waitingSince,reason,key:`${item.sysId}:${kind}`}];
  }).sort((a,b)=>Number(b.tone==='critical')-Number(a.tone==='critical')||(a.waitingSince??Infinity)-(b.waitingSince??Infinity)||a.item.id.localeCompare(b.item.id));
 }

@@ -38,11 +38,11 @@ test('research handles missing deadlines and updates the display as time and dea
 });
 
 test('deadline color category uses a percentage rather than a fixed thirty minutes', () => {
- const record={...active,submitDate:new Date(now-8*3600_000).toISOString(),deadline:new Date(now+2*3600_000).toISOString()};
+ const record={...active,submitDate:new Date(now-9*3600_000).toISOString(),deadline:new Date(now+2*3600_000).toISOString()};
  assert.equal(displaySlaKind(record,now),'soon');
  const short={...record,submitDate:new Date(now-5*60_000).toISOString(),deadline:new Date(now+15*60_000).toISOString()};
  assert.equal(displaySlaKind(short,now),'normal');
- const edge={...record,submitDate:new Date(now-70*60_000).toISOString(),deadline:new Date(now+30*60_000).toISOString()};
+ const edge={...record,submitDate:new Date(now-80*60_000).toISOString(),deadline:new Date(now+20*60_000).toISOString()};
  assert.equal(displaySlaKind(edge,now),'normal');assert.equal(displaySlaKind(edge,now+1),'soon');
  assert.equal(displaySlaKind(record,now+3*3600_000),'late');
  for(const stateEnum of ['Resolved','Closed'])assert.ok(['restored','closed'].includes(displaySlaKind({...record,stateEnum},now)));
