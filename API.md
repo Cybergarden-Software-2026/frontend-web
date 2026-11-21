@@ -197,6 +197,8 @@ Change reasons are `import`, `source`, `expiry`, and `assignment`. On `stream.re
 | `GET /notifications` | Parameters are `cursor` and `limit`. Returns `items`, `nextCursor`, and `unreadCount`. Each notification has `id`, `type`, `title`, `body`, `isRead`, `readAt`, and references to the related incident or event when available. |
 | `PUT /notifications/{notification_id}/read` | Takes a positive numeric notification ID. Send an empty body. The successful response is `204 No Content`. Marking an already-read notification yields the same response. |
 
+The `frontend-web` event journal uses the existing cursor-based `GET /events` archive together with recent SSE events, deduplicated by eventId. Its search, event-type and time-period filters are applied before eight-row display pagination. No backend schema or route changes are required.
+
 History and notification lists return records newest first. `limit` defaults to 50 and accepts 1–200. In history requests, `afterId` and `beforeId` are exclusive bounds on **eventId**. To fetch older events, send `nextCursor` as `beforeId`. For notifications, send it as `cursor`. A cursor of `null` ends pagination. These cursors contain up to 18 decimal digits.
 
 A history event contains `eventId`, `revision`, `incidentRevision`, `sysId`, `incidentId`, `header`, `at`, the arrays `types` and `fields`, and the source records `previous` and `current`, each of which may be `null`. One event can have multiple types. The `type` filter accepts one of `created`, `critical`, `assigned`, `resolved`, `closed`, `reopened`, `research`, `deadline`, `team`, `priority`, `changed`, or `removed`. SSE subscription cursors track snapshot revisions. History cursors track individual events.

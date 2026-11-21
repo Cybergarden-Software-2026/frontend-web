@@ -8,6 +8,7 @@ import './styles.css';
 import './dashboard.css';
 import './header-wave.css';
 import './detail-page.css';
+import './events-journal.css';
 import './fonts.css';
 import './auth.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><AuthGate><App /></AuthGate></React.StrictMode>);
