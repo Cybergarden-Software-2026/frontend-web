@@ -47,15 +47,16 @@ interface WireIncidentDetail {
   details?: { isPresent: boolean };
 }
 
-async function eventPage(path: string, limit: number, beforeId?: string, signal?: AbortSignal) {
+async function eventPage(path: string, limit: number, beforeId?: string, signal?: AbortSignal, afterId?: string) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (beforeId) params.set('beforeId', beforeId);
-  const page = await request<{ items: WireEvent[]; nextCursor?: string | null }>(path + '?' + params, { signal });
+  if (afterId) params.set('afterId', afterId);
+  const page = await request<{ items: WireEvent[]; nextCursor?: string | null }>(path + '?' + params, { signal, cache: 'no-store' });
   return { items: page.items.map(normalizeEvent), nextCursor: page.nextCursor ?? null };
 }
 
 export const api = {
-  snapshot: () => snapshotRequest('/snapshot?view=web'),
+  snapshot: (signal?: AbortSignal) => snapshotRequest('/snapshot?view=web', { cache: 'no-store', signal }),
   async incidents(query: QueueQuery): Promise<QueuePage> {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries({ ...query, page: query.page ?? 1 })) {
@@ -70,7 +71,7 @@ export const api = {
     );
     return { incident: normalizeIncident(raw), revision, isPresent: details?.isPresent ?? true };
   },
-  events: (beforeId?: string, signal?: AbortSignal) => eventPage('/events', 200, beforeId, signal),
+  events: (beforeId?: string, signal?: AbortSignal, afterId?: string) => eventPage('/events', 200, beforeId, signal, afterId),
   incidentEvents: (key: string, beforeId?: string, signal?: AbortSignal) =>
     eventPage('/incidents/' + encodeURIComponent(key) + '/events', 3, beforeId, signal),
   teams: () => request<{ items: { name: string; activeCount: number }[] }>('/teams'),

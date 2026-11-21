@@ -35,10 +35,20 @@ export interface Analysis {
  attention: string[]; candidates: { team: string; evidenceIds: string[]; reason: string }[];
  missing: string[];
 }
-export function stateOf(item: Incident): State {
- if (Object.hasOwn(STATES,item.stateEnum)) return item.stateEnum as State;
- if (item.stateEnum || item.stateId == null) return 'Unknown';
- return ({ 0: 'Assigned', 2: 'WorkInProgress', 7: 'Resolved', 10: 'Closed', 20: 'Research' } as Record<number, State>)[item.stateId] ?? 'Unknown';
+const stateByEnum = new Map(
+ (Object.keys(STATES) as State[]).filter(state => state !== 'Unknown').map(state => [state.toLowerCase(), state]),
+);
+const stateById = new Map<number, State>([[0, 'Assigned'], [2, 'WorkInProgress'], [7, 'Resolved'], [10, 'Closed'], [20, 'Research']]);
+
+export function stateOf(item: Partial<Incident>): State {
+ const dashboard = item.dashboard;
+ if (dashboard && typeof dashboard === 'object' && 'normalizedState' in dashboard) {
+  const state = dashboard.normalizedState;
+  if (typeof state === 'string' && Object.hasOwn(STATES, state)) return state as State;
+ }
+ // The Rust importer prefers a recognized enum, then tries the numeric source code.
+ const stateEnum = typeof item.stateEnum === 'string' ? item.stateEnum.trim().toLowerCase() : '';
+ return stateByEnum.get(stateEnum) ?? (item.stateId == null ? undefined : stateById.get(item.stateId)) ?? 'Unknown';
 }
 export function operational(item: Incident) { return ['Assigned','WorkInProgress'].includes(stateOf(item)); }
 export function requiresAttention(item: Incident) { return operational(item) || stateOf(item) === 'Research'; }
@@ -115,11 +125,38 @@ export function eventTypes(before: Incident | null, after: Incident | null): str
  return types.length ? types : ['changed'];
 }
 export const EVENT_LABELS: Record<string,string> = { critical:'Критический инцидент', assigned:'Назначен координаторам', resolved:'Проблема устранена', closed:'Инцидент закрыт', reopened:'Возвращён в работу', research:'Начато исследование', deadline:'Изменён срок', team:'Изменена команда', priority:'Изменён приоритет', created:'Новый инцидент', removed:'Удалён из снимка', changed:'Обновлены данные' };
+export function isStateField(field: string): boolean {
+ return field === 'state' || field === 'stateEnum' || field === 'stateId';
+}
+
+function describeStateChange(event: ChangeEvent): string | undefined {
+ const before = event.previous;
+ const after = event.current;
+ const oldState = before && stateOf(before);
+ const newState = after && stateOf(after);
+ if (oldState !== newState) {
+  return `Статус: ${oldState ? STATES[oldState] : '—'} → ${newState ? STATES[newState] : '—'}`;
+ }
+ if (before?.state !== after?.state) {
+  const label = oldState === 'Unknown' ? 'Статус' : 'Название статуса';
+  return `${label}: ${before?.state || '—'} → ${after?.state || '—'}`;
+ }
+ if (before?.stateId !== after?.stateId) {
+  return `Код статуса: ${before?.stateId ?? '—'} → ${after?.stateId ?? '—'}`;
+ }
+ if (before?.stateEnum !== after?.stateEnum) {
+  return `Статус в источнике: ${before?.stateEnum || '—'} → ${after?.stateEnum || '—'}`;
+ }
+}
+
 export function describeEvent(event: ChangeEvent): string {
  const details: string[] = [];
  if (event.fields.includes('assignedGroupName')) details.push(`Команда: ${event.previous?.assignedGroupName || 'не указана'} → ${event.current?.assignedGroupName || 'не указана'}`);
  if (event.fields.includes('priorityId')) details.push(`Приоритет: ${event.previous?.priorityId ?? '—'} → ${event.current?.priorityId ?? '—'}`);
- if (event.fields.includes('stateEnum')) details.push(`Статус: ${event.previous?.state || '—'} → ${event.current?.state || '—'}`);
+ if (event.fields.some(isStateField)) {
+  const stateDescription = describeStateChange(event);
+  if (stateDescription) details.push(stateDescription);
+ }
  if (event.fields.includes('deadline')) details.push('Обновлён дедлайн решения');
  return details.join(' · ') || `${event.fields.length} изменённых полей`;
 }

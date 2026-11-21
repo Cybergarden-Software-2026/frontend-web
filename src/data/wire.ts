@@ -20,6 +20,22 @@ function numberOrNull(value: unknown): number | null {
   return digits && Number.isFinite(Number(digits)) ? Number(digits) : null;
 }
 
+function sourceStateId(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isInteger(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const digits = value.trim();
+  if (!/^-?\p{Decimal_Number}+$/u.test(digits)) return null;
+  const ascii = digits.replace(/[^\x00-\x7F]/gu, digit => {
+    // Unicode decimal digits are assigned in runs of ten, sometimes adjacent.
+    const code = digit.codePointAt(0)!;
+    let first = code;
+    while (/\p{Decimal_Number}/u.test(String.fromCodePoint(first - 1))) first--;
+    return String((code - first) % 10);
+  });
+  const id = Number(ascii);
+  return Number.isInteger(id) ? id : null;
+}
+
 function flag(value: unknown): boolean | undefined {
   const word = text(value).toLowerCase();
   return word ? ['true', 'да', 'yes', '1'].includes(word) : undefined;
@@ -42,7 +58,7 @@ export function normalizeIncident(raw: RawIncident): Incident {
     header: text(raw.header), description: text(raw.description), shortDescription: text(raw.shortDescription),
     productName: text(raw.productName), service: text(raw.service), scenarioName: text(raw.scenarioName),
     productId: text(raw.productId), productMasterId: text(raw.productMasterId), serviceId: text(raw.serviceId) || null,
-    stateId: numberOrNull(raw.stateId), stateEnum: text(raw.stateEnum), state: text(raw.state),
+    stateId: sourceStateId(raw.stateId), stateEnum: text(raw.stateEnum), state: text(raw.state),
     stateReason: text(raw.stateReason) || null,
     priorityId: Number(raw.priorityId), priority: text(raw.priority),
     impactId: numberOrNull(raw.impactId), impact: text(raw.impact),

@@ -8,9 +8,9 @@ import { useEventHistory } from '../data/useEventHistory';
 
 const timeFormat=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit',second:'2-digit'});
 const dayFormat=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'long'});
-export function EventsJournal({events,now,loading,connected,onOpen}:{events:ChangeEvent[];now:number;loading:boolean;connected:boolean;onOpen:(sysId:string)=>void}) {
+export function EventsJournal({events,now,loading,connected,historyEpoch,unread,onMarkRead,onOpen}:{events:ChangeEvent[];now:number;loading:boolean;connected:boolean;historyEpoch:number;unread:number;onMarkRead:()=>void;onOpen:(sysId:string)=>void}) {
  const [search,setSearch]=useState(''),[type,setType]=useState(''),[period,setPeriod]=useState('24h'),[page,setPage]=useState(1);
- const history=useEventHistory(period,connected,now);
+ const history=useEventHistory({period,connected,now,events,historyEpoch});
  const allEvents=useMemo(()=>[...history.archive,...events],[history.archive,events]);
  const result=useMemo(()=>selectJournal(allEvents,{search,type,period,page},now),[allEvents,search,type,period,page,Math.floor(now/1000)]);
  useEffect(()=>{if(page!==result.page)setPage(result.page);},[page,result.page]);
@@ -18,13 +18,13 @@ export function EventsJournal({events,now,loading,connected,onOpen}:{events:Chan
  function reset(){setSearch('');setType('');setPeriod('24h');setPage(1);}
  function turn(next:number){setPage(next);document.getElementById('journal-title')?.focus({preventScroll:true});}
  return <section className="surface events-journal" aria-labelledby="journal-title" aria-busy={history.loading||loading&&!allEvents.length}>
-  <header className="journal-heading"><h1 id="journal-title" tabIndex={-1}>Журнал событий</h1></header>
+  <header className="journal-heading"><h1 id="journal-title" tabIndex={-1}>Журнал событий</h1><button className="button secondary" type="button" disabled={!unread} onClick={onMarkRead}><Icon name="check" size={16}/>Отметить прочитанными</button></header>
   <div className="journal-filters">
    <label className="journal-search"><Icon name="search" size={16}/><input type="search" aria-label="Найти инцидент в журнале" placeholder="Найти инцидент" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/></label>
    <FilterSelect label="Тип события" value={type} options={[{id:'',label:'Все типы'},...JOURNAL_TYPES]} onChange={value=>{setType(value);setPage(1);}}/>
    <FilterSelect label="Период" value={period} options={JOURNAL_PERIODS} onChange={value=>{setPeriod(value);setPage(1);}}/>
   </div>
-  {history.failed&&<div className="journal-load-error" role="status"><span>Не удалось загрузить историю полностью. Доступные события сохранены.</span><button className="text-button" onClick={history.retry}>Повторить</button></div>}
+  {history.failed&&<div className="journal-load-error" role="status"><span>Не удалось загрузить историю полностью. Доступные события сохранены.</span><button className="text-button" disabled={!connected} onClick={history.retry}>Повторить</button></div>}
   <div className="journal-table-zone"><table className="journal-table" aria-label="Журнал событий"><colgroup><col className="journal-icon-col"/><col className="journal-id-col"/><col className="journal-type-col"/><col className="journal-time-col"/><col/></colgroup>
    <thead><tr><th scope="col"><span className="sr-only">Значок события</span></th><th scope="col">Инцидент</th><th scope="col">Тип события</th><th scope="col">Время</th><th scope="col">Что изменилось</th></tr></thead>
    <tbody>{result.items.map(event=>{

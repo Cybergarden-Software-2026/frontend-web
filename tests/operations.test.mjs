@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {headerAlerts,queryIncidents,detectMassProblems,deadlineRemainingRatio} from '../src/domain/operations.ts';
 import {analyze,COORDINATOR_TEAM} from '../src/domain/incidents.ts';
+import {queueSlaTimeBucket} from '../src/domain/queueSlaRefresh.ts';
 const seed=JSON.parse(readFileSync(new URL('../data/seed.json',import.meta.url),'utf8'));
 const now=Date.parse('2026-11-20T12:00:00Z');
 const base={...seed[0],assignedGroupName:'Команда X',stateEnum:'Assigned',priorityId:2,submitDate:new Date(now-20*60_000).toISOString(),deadline:new Date(now+60*60_000).toISOString()};
@@ -14,7 +15,7 @@ test('critical header cards persist for every team and unresolved state, indepen
   assert.equal(headerAlerts([{...record,deadline:new Date(now-60_000).toISOString()}],now)[0].kind,'critical');
   assert.equal(queryIncidents([record],{group:'critical'},1,now).total,stateEnum==='Research'?0:1);
  }
- for(const stateEnum of ['Resolved','Closed','Unknown'])assert.equal(headerAlerts([{...base,stateEnum,priorityId:4}],now).length,0);
+ for(const stateEnum of ['Resolved','Closed','Unknown'])assert.equal(headerAlerts([{...base,stateEnum,stateId:null,priorityId:4}],now).length,0);
 });
 test('routing waits start strictly after 8 minutes; deadline warnings work independently',()=>{
  const waiting={...base,assignedGroupName:COORDINATOR_TEAM,lastAssignmentToTeamDateTime:new Date(now-8*60_000).toISOString()};
@@ -73,7 +74,7 @@ test('upcoming deadline warnings include assigned research and deduplicate routi
  const record={...base,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now).toISOString(),submitDate:new Date(now-90*60_000).toISOString(),deadline:new Date(now+10*60_000).toISOString()};
  for(const stateEnum of ['Assigned','WorkInProgress','Research'])assert.equal(headerAlerts([{...record,stateEnum}],now)[0].kind,'deadline');
  assert.equal(headerAlerts([{...record,assignedGroupName:'Команда X'}],now)[0].kind,'deadline');
- for(const stateEnum of ['Resolved','Closed','Unknown'])assert.equal(headerAlerts([{...record,stateEnum}],now).length,0);
+ for(const stateEnum of ['Resolved','Closed','Unknown'])assert.equal(headerAlerts([{...record,stateEnum,stateId:null}],now).length,0);
  const both={...record,priorityId:4,assignedGroupName:'',lastAssignmentToTeamDateTime:new Date(now-9*60_000).toISOString()};
  assert.equal(headerAlerts([both],now).length,1);assert.equal(headerAlerts([both],now)[0].kind,'critical');
  assert.equal(headerAlerts([{...both,priorityId:2,assignedGroupName:COORDINATOR_TEAM}],now)[0].kind,'waiting');
@@ -91,4 +92,33 @@ test('assigning a team removes overdue header warnings but coordinator assignmen
  assert.equal(headerAlerts([{...record,assignedGroupName:COORDINATOR_TEAM}],now)[0].kind,'deadline');
  const extended={...record,deadline:new Date(now+10*3600_000).toISOString()};
  assert.equal(headerAlerts([extended],now).length,0);
+});
+
+test('SLA queue refreshes across the 30-minute and overdue thresholds at the same revision',()=>{
+ const revision=7,close=now+30*60_000+15_000,later=now+60*60_000;
+ const rows=[
+  {...base,sysId:'later',id:'later',deadline:new Date(later).toISOString()},
+  {...base,sysId:'close',id:'close',deadline:new Date(close).toISOString()},
+ ];
+ const result=(sla,at)=>queryIncidents(rows,{sla,sort:'deadline'},revision,at);
+ const first=result('normal',now);
+ assert.deepEqual(first.items.map(item=>item.id),['close','later']);
+ assert.equal(queueSlaTimeBucket('soon',now+1000),queueSlaTimeBucket('soon',now));
+
+ const after30=now+30_000;
+ assert.notEqual(queueSlaTimeBucket('soon',after30),queueSlaTimeBucket('soon',now));
+ assert.notEqual(queueSlaTimeBucket('normal',after30),queueSlaTimeBucket('normal',now));
+ assert.equal(result('soon',now).total,0);
+ assert.equal(result('soon',after30).revision,revision);
+ assert.deepEqual(result('soon',after30).items.map(item=>item.id),['close']);
+ assert.deepEqual(result('normal',after30).items.map(item=>item.id),['later']);
+
+ const afterDeadline=close+15_000;
+ assert.notEqual(queueSlaTimeBucket('late',afterDeadline),queueSlaTimeBucket('late',close-16_000));
+ assert.equal(result('late',close-16_000).total,0);
+ assert.deepEqual(result('late',afterDeadline).items.map(item=>item.id),['close']);
+ for(const staticSla of ['','unknown','research','restored','closed']){
+  assert.equal(queueSlaTimeBucket(staticSla,now),null);
+  assert.equal(queueSlaTimeBucket(staticSla,afterDeadline),null);
+ }
 });

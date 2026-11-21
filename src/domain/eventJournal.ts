@@ -1,5 +1,5 @@
 import type { ChangeEvent } from './incidents.ts';
-import { describeEvent, timestamp } from './incidents.ts';
+import { describeEvent, isStateField, timestamp } from './incidents.ts';
 
 export const JOURNAL_TYPES = [
  {id:'team',label:'Назначение команды',icon:'userPlus',tone:'purple'},
@@ -24,7 +24,7 @@ export const JOURNAL_PERIODS = [
 export function matchesEventType(event:ChangeEvent,type:string):boolean {
  if(!type)return true;
  if(type==='team')return event.types.some(t=>['team','assigned'].includes(t))||event.fields.includes('assignedGroupName');
- if(type==='state')return event.fields.some(f=>['state','stateEnum','stateId'].includes(f));
+ if(type==='state')return event.fields.some(isStateField);
  return event.types.includes(type);
 }
 export function journalEventType(event:ChangeEvent) {
@@ -40,8 +40,7 @@ export function journalDescription(event:ChangeEvent):string {
   details.push(after?before&&before!==after?`Команда: «${before}» → «${after}».`:`Назначена команда «${after}».`:'Назначение команды снято.');
  }
  const remaining=event.fields.filter(f=>f!=='assignedGroupName');
- if(remaining.some(f=>['priorityId','stateEnum','deadline'].includes(f)))details.push(describeEvent({...event,fields:remaining}));
- if(!details.length&&matchesEventType(event,'state'))details.push(`Статус: ${event.previous?.state || 'не указан'} → ${event.current?.state || 'не указан'}.`);
+ if(remaining.some(field=>field==='priorityId'||field==='deadline'||isStateField(field)))details.push(describeEvent({...event,fields:remaining})+'.');
  if(!details.length&&event.types.includes('critical'))details.push(`Инцидент «${event.header || event.incidentId}» требует критического внимания.`);
  return details.join(' ')||`Обновлены данные инцидента «${event.header || event.incidentId}».`;
 }
