@@ -1,5 +1,6 @@
 import type { Incident } from '../domain/incidents.ts';
-import { slaKind, timestamp } from '../domain/incidents.ts';
+import { timestamp } from '../domain/incidents.ts';
+import { displaySlaKind } from '../domain/deadlineDisplay.ts';
 
 export function detailDate(value: unknown): string {
  const time = timestamp(value);
@@ -10,8 +11,8 @@ export function detailDate(value: unknown): string {
 }
 
 export function detailSla(item: Incident, now: number) {
- const kind = slaKind(item, now);
- const staticStates = { research: ['Исследование', 'Разбор причин'], restored: ['Проблема устранена', 'Завершён'], closed: ['Работа закончена', 'Закрыт'], unknown: ['Срок решения', 'Не указан'] };
+ const kind = displaySlaKind(item, now);
+ const staticStates = { restored: ['Остановлен', '00:00:00'], closed: ['Остановлен', '00:00:00'], unknown: ['Срок не указан', '--:--:--'] };
  if (kind in staticStates) {
   const [label, value] = staticStates[kind as keyof typeof staticStates];
   return { kind, label, value };

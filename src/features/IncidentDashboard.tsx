@@ -12,11 +12,10 @@ import { timestamp,stateOf } from '../domain/incidents';
 export function QueueSla({item,now}:{item:Incident;now:number}) {
  const state=stateOf(item),deadline=timestamp(item.deadline);
  if(state==='Resolved'||state==='Closed')return <span className="queue-sla stopped"><strong>00:00:00</strong><small>{state==='Resolved'?'Устранён':'Остановлен'}</small></span>;
- if(state==='Research')return <span className="queue-sla researching"><strong>Исследование</strong><small>Срок SLA не определён</small></span>;
- if(deadline===null)return <span className="queue-sla"><strong>—</strong><small>Срок не указан</small></span>;
+ if(deadline===null)return <span className="queue-sla"><strong>--:--:--</strong><small>Срок не указан</small></span>;
  const delta=deadline-now,seconds=Math.floor(Math.abs(delta)/1000),hours=Math.floor(seconds/3600);
  const value=[hours,Math.floor(seconds%3600/60),seconds%60].map(n=>String(n).padStart(2,'0')).join(':');
- return <span className={`queue-sla ${delta<0?'late':delta<=30*60_000?'soon':'normal'}`}><strong>{delta<0?'− ':''}{value}</strong><small>{delta<0?'Просрочен':delta<=30*60_000?'Истекает':'Осталось'}</small></span>;
+ return <span className={`queue-sla ${delta<=0?'late':delta<=30*60_000?'soon':'normal'}`}><strong>{delta<=0?'− ':''}{value}</strong><small>{delta<=0?'Просрочен':delta<=30*60_000?'Истекает':'Осталось'}</small></span>;
 }
 
 export function IncidentDashboard({snapshot,now,connected,loading,onOpen,onAssign,teamContext}:{snapshot:Snapshot|null;now:number;connected:boolean;loading:boolean;onOpen:(id:string)=>void;onAssign:(id:string)=>void;teamContext:{name:string;token:number}|null}) {

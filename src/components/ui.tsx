@@ -1,8 +1,9 @@
 import { useEffect,useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { Incident } from '../domain/incidents';
-import { STATES,stateOf,slaKind,timestamp } from '../domain/incidents';
+import { STATES,stateOf,timestamp } from '../domain/incidents';
 import { Icon } from './Icon';
+import { displaySlaKind } from '../domain/deadlineDisplay';
 export const dateTime=(value:string|number|null|undefined)=>value==null?'Не указано':new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
 export const timeOnly=(value:string|number)=>new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(value));
 export const dayOnly=(value:string|number)=>new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'short'}).format(new Date(value));
@@ -15,8 +16,8 @@ export function Team({name,compact=false}:{name:string;compact?:boolean}) {
  return <span className={`team-tag ${compact?'compact':''}`} title={text}><span className={`team-avatar tone-${tone}`} aria-hidden="true">{initials}</span><span>{text}</span></span>;
 }
 export function Sla({item,now}:{item:Incident;now:number}) {
- const kind=slaKind(item,now),deadline=timestamp(item.deadline);
- if(['restored','closed','research','unknown'].includes(kind))return <span className={`sla kind-${kind}`}><strong>{kind==='restored'?'Устранён':kind==='closed'?'Работа окончена':kind==='research'?'Разбор причин':'Без дедлайна'}</strong><small>{kind==='research'?(deadline===null?'Срок не указан':'Срок: '+dateTime(item.deadline)):kind==='unknown'?'Срок не указан':dateTime(item.completionDate)}</small></span>;
+ const kind=displaySlaKind(item,now),deadline=timestamp(item.deadline);
+ if(['restored','closed','unknown'].includes(kind))return <span className={`sla kind-${kind}`}><strong>{kind==='unknown'?'--:--:--':'00:00:00'}</strong><small>{kind==='unknown'?'Срок не указан':'Остановлен'}</small></span>;
  const duration=(deadline??now)-now,minutes=Math.ceil(Math.abs(duration)/60_000);
  const value=minutes>=1440?`${Math.floor(minutes/1440)} д ${Math.floor(minutes%1440/60)} ч`:minutes>=60?`${Math.floor(minutes/60)} ч ${minutes%60} мин`:`${Math.floor(Math.abs(duration)/60_000).toString().padStart(2,'0')}:${(Math.floor(Math.abs(duration)/1000)%60).toString().padStart(2,'0')}`;
  return <span className={`sla sla-${kind}`} title={`Дедлайн: ${dateTime(item.deadline)}`}><strong>{kind==='late'?'−':''}{value}</strong><small>{kind==='late'?'Срок истёк':kind==='soon'?'Скоро истечёт':'До решения'}</small></span>;
