@@ -1,5 +1,4 @@
 import type {Incident} from './incidents.ts';
-import {headerAlerts,type HeaderAlert} from './alerts.ts';
 const optionalIncidentFields = [
  'teamPhone', 'shortDescription', 'description', 'solution', 'productName', 'service',
  'scenarioName', 'serviceType', 'impact', 'urgency', 'assignedEmployee', 'assignedEmployeeLogin',
@@ -18,6 +17,10 @@ export interface MobileIncident extends Partial<Record<typeof optionalIncidentFi
  headerKind: 'critical' | 'waiting' | 'deadline' | null;
 }
 export interface MobileSnapshot {revision:number;serverTime:string;items:MobileIncident[]}
+export interface MobileAlert {
+ item: Incident;
+ kind: NonNullable<MobileIncident['headerKind']>;
+}
 export function parseMobileSnapshot(value:unknown):MobileSnapshot{
  if(!value||typeof value!=='object')throw Error('Некорректный снимок инцидентов');
  const s=value as MobileSnapshot;
@@ -42,11 +45,12 @@ export function parseMobileSnapshot(value:unknown):MobileSnapshot{
 export function mobileIncident(i:MobileIncident):Incident{
  return {sysId:i.sysId,id:i.id,header:i.header||'Без названия',description:i.description||'',shortDescription:i.shortDescription||undefined,productName:i.productName||'',service:i.service||'',stateId:null,stateEnum:i.normalizedState,state:i.normalizedState,priorityId:i.priorityId,priority:'',urgencyId:null,urgency:i.urgency||'',impactId:null,impact:i.impact||'',assignedGroupName:i.assignedGroupName||'',submitDate:i.submitDate||'',deadline:i.deadline,completionDate:null,lastAssignmentToTeamDateTime:i.lastAssignmentToTeamDateTime,dashboard:{normalizedState:i.normalizedState}};
 }
-export function currentMobileAlerts(snapshot:MobileSnapshot,now:number):HeaderAlert[]{
- // At the received serverTime use the server classification. Between responses,
- // recalculate the same three rules so 8-minute/20-percent boundaries are live.
- const computed=headerAlerts(snapshot.items.map(mobileIncident),now);
- if(now!==Date.parse(snapshot.serverTime))return computed;
- const byId=new Map(computed.map(a=>[a.item.sysId,a]));
- return snapshot.items.filter(i=>i.headerKind!==null).map(i=>byId.get(i.sysId)??{item:mobileIncident(i),kind:i.headerKind!,tone:i.headerKind==='critical'?'critical':'warning',waitingSince:null,reason:i.headerKind==='critical'?'Критический инцидент':i.headerKind==='waiting'?'Ожидает распределения больше 8 минут':'Истекает'} as HeaderAlert).sort((a,b)=>['critical','waiting','deadline'].indexOf(a.kind)-['critical','waiting','deadline'].indexOf(b.kind));
+const alertOrder = {critical: 0, waiting: 1, deadline: 2};
+
+export function currentMobileAlerts(snapshot: MobileSnapshot): MobileAlert[] {
+ const alerts: MobileAlert[] = [];
+ for (const entry of snapshot.items) {
+  if (entry.headerKind !== null) alerts.push({item: mobileIncident(entry), kind: entry.headerKind});
+ }
+ return alerts.sort((a, b) => alertOrder[a.kind] - alertOrder[b.kind]);
 }
