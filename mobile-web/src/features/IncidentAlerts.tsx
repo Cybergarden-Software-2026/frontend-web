@@ -14,6 +14,8 @@ interface Props {
  loading: boolean;
  error: string;
  refresh: () => void;
+ owner: string;
+ onExpired: () => void;
 }
 
 const alertIcon = {critical: 'alert', waiting: 'people', deadline: 'clock'};
@@ -56,7 +58,7 @@ function IncidentCard({alert, now}: {alert: HeaderAlert; now: number}) {
  </li>;
 }
 
-export function IncidentAlerts({snapshot, now, loading, error, refresh}: Props) {
+export function IncidentAlerts({snapshot, now, loading, error, refresh, owner, onExpired}: Props) {
  const [hash, setHash] = useState(() => location.hash);
  useEffect(() => {
   const change = () => {
@@ -78,7 +80,7 @@ export function IncidentAlerts({snapshot, now, loading, error, refresh}: Props) 
 
  if (selectedId) return <>
   {connection}
-  {selected ? <IncidentDetail key={selected.sysId} item={selected} now={now} onBack={back}/> :
+  {selected ? <IncidentDetail key={selected.sysId} item={selected} now={now} onBack={back} owner={owner} refresh={refresh} onExpired={onExpired}/> :
    <>
     <button className="back" onClick={back}><Icon name="left" size={18}/>Назад к важному</button>
     <section className="surface empty-state" role="status">

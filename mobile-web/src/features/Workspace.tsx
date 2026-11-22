@@ -171,7 +171,7 @@ export function Workspace({session, onExit, onExpired}: {
      <Icon name="close" size={18}/>
     </button>
    </div>}
-   <IncidentAlerts snapshot={current.snapshot} now={current.now} loading={current.loading} error={current.error} refresh={refresh}/>
+   <IncidentAlerts snapshot={current.snapshot} now={current.now} loading={current.loading} error={current.error} refresh={refresh} owner={owner} onExpired={onExpired}/>
   </main>
  </div>;
 }

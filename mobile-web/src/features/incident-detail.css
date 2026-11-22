@@ -129,7 +129,9 @@
 }
 
 .mobile-detail-call:hover { background: #fff0f3; }
-.mobile-detail-call:disabled { opacity: 1; color: #746b83; border-color: var(--line); background: #f8f5fb; }
+.mobile-team-contact { display: grid; gap: 8px; }
+.mobile-team-contact .button { min-height: 44px; padding: 8px 12px; }
+.mobile-team-contact [role="status"] { color: #206650; font-size: 13px; }
 
 .mobile-detail-facts {
   display: grid;

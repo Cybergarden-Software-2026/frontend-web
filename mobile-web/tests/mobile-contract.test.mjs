@@ -24,3 +24,25 @@ test('current incident list uses only the new bearer route and accepts a confirm
  globalThis.fetch=async(url,init)=>{call={url,init};return Response.json({revision:4,serverTime:'2026-11-22T10:00:00Z',items:[]})};
  try{setToken('mobile');const result=await api.incidents();assert.deepEqual(result.items,[]);assert.match(call.url,/\/mobile\/incidents$/);assert.equal(call.init.headers.Authorization,'Bearer mobile');assert.equal(call.init.credentials,'omit')}finally{setToken(null);globalThis.fetch=original}
 });
+
+test('team contact records the exact team with a stable idempotency key for a repeat',async()=>{
+ const original=globalThis.fetch,calls=[];
+ globalThis.fetch=async(url,init)=>{
+  calls.push({url,init});
+  return Response.json({eventId:517,types:['team_contacted']},{status:calls.length===1?201:200});
+ };
+ try{
+  setToken('mobile');
+  const requestId='ec14a7dc-4627-4a1c-91fc-985123882b77';
+  const first=await api.recordTeamContact('sys/1','Инфраструктура',requestId);
+  const replay=await api.recordTeamContact('sys/1','Инфраструктура',requestId);
+  assert.deepEqual(first,replay);
+  for(const {url,init} of calls){
+   assert.match(url,/\/mobile\/incidents\/sys%2F1\/team-contact$/);
+   assert.equal(init.method,'POST');
+   assert.equal(init.credentials,'omit');
+   assert.equal(init.headers.Authorization,'Bearer mobile');
+   assert.deepEqual(JSON.parse(init.body),{team:'Инфраструктура',requestId});
+  }
+ }finally{setToken(null);globalThis.fetch=original}
+});

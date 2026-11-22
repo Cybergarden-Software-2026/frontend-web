@@ -6,6 +6,7 @@ globalThis.location={hash:'#alerts'};
 const server=await createServer({server:{middlewareMode:true,hmr:false,ws:false}});
 try{
  const {IncidentAlerts}=await server.ssrLoadModule('/src/features/IncidentAlerts.tsx');
+ const {IncidentDetail}=await server.ssrLoadModule('/src/features/IncidentDetail.tsx');
  const {Login}=await server.ssrLoadModule('/src/features/Login.tsx');
  const now=Date.parse('2026-11-22T10:00:00Z'),start='2026-11-22T09:00:00Z';
  const base={header:'Сбой сервиса',normalizedState:'Assigned',priorityId:2,assignedGroupName:'Команда решения',submitDate:start,lastAssignmentToTeamDateTime:start,deadline:'2026-11-22T11:00:00Z',headerKind:null};
@@ -16,6 +17,14 @@ try{
  {...base,sysId:'4',id:'INC4',header:'Обычная невидимая задача'}]};
  const markup=renderToStaticMarkup(React.createElement(IncidentAlerts,{snapshot,now,loading:false,error:'',refresh(){}}));
  assert.match(markup,/Критическая задача/);assert.match(markup,/Ждёт координатора/);assert.match(markup,/Срок подходит/);assert.doesNotMatch(markup,/Обычная невидимая задача/);assert.match(markup,/00:01:00/);
+ const detail=(fields)=>renderToStaticMarkup(React.createElement(IncidentDetail,{item:{...snapshot.items[0],...fields},now,owner:'anna',onBack(){},refresh(){},onExpired(){}}));
+ const realPhone=detail({teamPhone:'+12025550100',teamPhoneIsTest:false});
+ assert.match(realPhone,/href="tel:\+12025550100"/);assert.match(realPhone,/Связались с командой/);
+ const testPhone=detail({teamPhone:'+78194693716',teamPhoneIsTest:true});
+ assert.doesNotMatch(testPhone,/href="tel:/);assert.match(testPhone,/Тестовый номер \+78194693716/);assert.match(testPhone,/Связались с командой/);
+ assert.doesNotMatch(detail({teamPhone:'+78194693716'}),/href="tel:/);
+ assert.doesNotMatch(detail({assignedGroupName:null}),/Связались с командой/);
+ assert.doesNotMatch(detail({assignedGroupName:'КЦ ИТ Координаторы Массовых Инцидентов'}),/Связались с командой/);
  const login=renderToStaticMarkup(React.createElement(Login,{notice:'',onLogin:async()=>{}}));
  assert.match(login,/Сканировать QR-код/);assert.match(login,/Код действует 5 минут/);assert.match(login,/globe-scene/);
  Object.defineProperty(navigator,'standalone',{configurable:true,value:true});

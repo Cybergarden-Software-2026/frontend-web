@@ -17,8 +17,9 @@ ENV CI=1 \
 RUN pnpm test \
     && pnpm build \
     && test -s dist/index.html \
+    && test -s dist/itsm/index.html \
     && test -s dist/sounds/alert-bell.wav \
-    && cp -R dist/index.html dist/assets dist/fonts dist/sounds dist/mark.svg /site/
+    && cp -R dist/index.html dist/assets dist/fonts dist/sounds dist/mark.svg dist/itsm /site/
 
 FROM build-base AS mobile-build
 WORKDIR /mobile-web

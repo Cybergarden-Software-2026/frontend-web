@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { selectJournal,journalEventType,journalDescription,matchesEventType } from '../src/domain/eventJournal.ts';
+import { describeEvent, EVENT_LABELS } from '../src/domain/incidents.ts';
+import { normalizeSnapshot } from '../src/data/wire.ts';
 const now=Date.parse('2026-11-21T09:00:00Z');
 const event=(eventId,patch={})=>({eventId,revision:eventId,sysId:'record-'+eventId,incidentId:'INC-'+eventId,header:'Оплата картой',types:['team'],fields:['assignedGroupName'],at:new Date(now-eventId*60_000).toISOString(),previous:{assignedGroupName:''},current:{assignedGroupName:'Платёжная платформа'},...patch});
 test('journal pagination has no overlap, deduplicates IDs and orders newest first',()=>{
@@ -26,6 +28,20 @@ test('assignment and coordinator assignment share a filter and meaningful descri
  assert.equal(journalDescription(assigned),'Назначена команда «Платёжная платформа».');
  assert.match(journalDescription(event(2,{previous:{assignedGroupName:'Команда A'}})),/Команда A.*Платёжная платформа/);
  assert.equal(journalDescription(event(3,{current:{assignedGroupName:''}})),'Назначение команды снято.');
+});
+test('contact events use their recorded team and coordinator in the journal and detail history',()=>{
+ const contact={team:'Инфраструктура',actorLogin:'shift-a',actorDisplayName:'Анна',requestId:'e8b7f394-3862-498f-83e2-65d2a1db6492'};
+ const raw=event(2,{types:['team_contacted'],fields:[],previous:null,current:null,contact});
+ const [record]=normalizeSnapshot({items:[],events:[raw]}).events;
+ assert.deepEqual(record.contact,contact);
+ assert.equal(journalEventType(record).id,'team_contacted');
+ assert.equal(EVENT_LABELS[record.types[0]],'Связались с командой');
+ assert.equal(journalDescription(record),'Команда «Инфраструктура» · Координатор Анна.');
+ assert.equal(describeEvent(record),'Команда «Инфраструктура» · Координатор Анна');
+ assert.match(describeEvent({...record,contact:{...contact,actorDisplayName:''}}),/shift-a/);
+ assert.equal(describeEvent({...record,contact:null}),'Контакт зафиксирован');
+ assert.equal(selectJournal([event(1),record,record],{type:'team_contacted',search:'инфраструктура'},now).total,1);
+ assert.equal(selectJournal([event(1),record],{type:'team'},now).total,1);
 });
 test('new and removed records, state changes and event icons preserve source facts',()=>{
  assert.match(journalDescription(event(1,{types:['created']})),/^Зарегистрирован инцидент «Оплата картой»/);

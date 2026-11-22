@@ -2,6 +2,7 @@ import type { ProblemCluster, QueuePage, QueueQuery } from '../domain/operations
 import type { MassExclusion } from '../domain/massProblems.ts';
 import type { PersonalStatistics } from '../domain/personalStatistics.ts';
 import type { Analysis } from '../domain/incidents';
+import type { TeamDirectoryEntry } from '../domain/teamDirectory.ts';
 import { normalizeIncident, normalizeSnapshot, normalizeEvent, type WireEvent, type WireSnapshot } from './wire.ts';
 
 export const API_BASE = (import.meta.env?.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
@@ -150,7 +151,7 @@ export const api = {
   events: (beforeId?: string, signal?: AbortSignal, afterId?: string) => eventPage('/events', 200, beforeId, signal, afterId),
   incidentEvents: (key: string, beforeId?: string, signal?: AbortSignal) =>
     eventPage('/incidents/' + encodeURIComponent(key) + '/events', 3, beforeId, signal),
-  teams: () => request<{ items: { name: string; activeCount: number }[] }>('/teams'),
+  teams: () => request<{ items: (TeamDirectoryEntry & { activeCount: number })[] }>('/teams'),
   assign: (id: string, team: string, expectedRevision: number) =>
     snapshotRequest('/incidents/' + encodeURIComponent(id) + '/assignment', {
       method: 'POST',

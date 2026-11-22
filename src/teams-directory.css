@@ -20,6 +20,7 @@
 .teams-attention ul{list-style:none;padding:0;margin:0;display:grid;gap:5px}.teams-attention li{min-width:0;line-height:15.6px}.teams-attention a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#4e347c;font-size:12px;line-height:15.6px;text-decoration:none}.teams-attention a:hover{text-decoration:underline}.teams-attention b{font-weight:700}
 .teams-more{align-self:flex-start;padding:0;border:0;background:none;color:#5b419c;font:700 11px/17px var(--font);cursor:pointer}.teams-more:hover{text-decoration:underline}
 .teams-card-contacts{display:flex;align-items:center;gap:10px;min-height:25px;color:#61576d;font-size:12px;line-height:17.4px}.teams-card-contacts>span{min-width:0;overflow-wrap:anywhere}
+.teams-card-contacts a{text-decoration:underline;text-underline-offset:3px}
 .teams-copy{display:grid;place-items:center;flex-shrink:0;width:25px;height:25px;padding:4px;border:1px solid #d8cbe5;border-radius:8px;background:white;color:#4e347c;cursor:pointer}.teams-copy:disabled{opacity:.4;cursor:default}
 .teams-card-counts{display:flex;flex-direction:column;align-self:stretch;justify-content:center;flex-shrink:0;width:130px;gap:8px;border-left:1px solid #eee6fb;margin:0 4px 0 0;padding:0 10px}
 .teams-card-counts>div{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;min-height:54px;padding:6px 9px;border:1px solid var(--count-border);border-radius:12px;background:linear-gradient(120deg,var(--count-bg),#fff);color:var(--count-ink)}

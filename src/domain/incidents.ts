@@ -23,6 +23,7 @@ export interface ChangeEvent {
  eventId: number; revision: number; sysId: string; incidentId: string; header: string;
  types: string[]; fields: string[]; at: string;
  previous: Partial<Incident> | null; current: Incident | null;
+ contact?: { team: string; actorLogin: string; actorDisplayName: string; requestId: string } | null;
 }
 export interface SourceHealth { path: string; readAt: string | null; error: string | null; }
 export interface Snapshot {
@@ -125,7 +126,7 @@ export function eventTypes(before: Incident | null, after: Incident | null): str
  if (before && before.priorityId !== after.priorityId) types.push('priority');
  return types.length ? types : ['changed'];
 }
-export const EVENT_LABELS: Record<string,string> = { critical:'Критический инцидент', assigned:'Назначен координаторам', resolved:'Проблема устранена', closed:'Инцидент закрыт', reopened:'Возвращён в работу', research:'Начато исследование', deadline:'Изменён срок', team:'Изменена команда', priority:'Изменён приоритет', created:'Новый инцидент', removed:'Удалён из снимка', changed:'Обновлены данные' };
+export const EVENT_LABELS: Record<string,string> = { critical:'Критический инцидент', assigned:'Назначен координаторам', resolved:'Проблема устранена', closed:'Инцидент закрыт', reopened:'Возвращён в работу', research:'Начато исследование', deadline:'Изменён срок', team:'Изменена команда', team_contacted:'Связались с командой', priority:'Изменён приоритет', created:'Новый инцидент', removed:'Удалён из снимка', changed:'Обновлены данные' };
 export function isStateField(field: string): boolean {
  return field === 'state' || field === 'stateEnum' || field === 'stateId';
 }
@@ -151,6 +152,11 @@ function describeStateChange(event: ChangeEvent): string | undefined {
 }
 
 export function describeEvent(event: ChangeEvent): string {
+ if (event.types.includes('team_contacted')) {
+  const team = event.contact?.team;
+  const actor = event.contact?.actorDisplayName || event.contact?.actorLogin;
+  return [team && `Команда «${team}»`, actor && `Координатор ${actor}`].filter(Boolean).join(' · ') || 'Контакт зафиксирован';
+ }
  const details: string[] = [];
  if (event.fields.includes('assignedGroupName')) details.push(`Команда: ${event.previous?.assignedGroupName || 'не указана'} → ${event.current?.assignedGroupName || 'не указана'}`);
  if (event.fields.includes('priorityId')) details.push(`Приоритет: ${event.previous?.priorityId ?? '—'} → ${event.current?.priorityId ?? '—'}`);
