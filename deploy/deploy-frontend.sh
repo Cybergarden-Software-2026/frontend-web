@@ -61,7 +61,47 @@ wait_for_frontend() {
 
 check_api() {
   local base="http://127.0.0.1:$1"
-  local content_type stream_status=0
+  local status required route content_type stream_status=0
+  status=$(curl --noproxy '*' -sS --max-time 5 -o "$scratch/session.json" \
+    -w '%{http_code}' "$base/api/v1/auth/coordinator/session") || return 1
+  if [[ "$status" != 200 ]]; then
+    echo "Coordinator session check returned HTTP $status" >&2
+    return 1
+  fi
+  required=$(python3 -c '
+import json
+import sys
+
+session = json.load(sys.stdin)
+if (
+    not isinstance(session, dict)
+    or not isinstance(session.get("required"), bool)
+    or session.get("authenticated") is not False
+):
+    sys.exit("Invalid anonymous coordinator session status")
+print("true" if session["required"] else "false")
+' < "$scratch/session.json") || return 1
+
+  if [[ "$required" == true ]]; then
+    for route in /api/v1/snapshot /api/v1/events/stream; do
+      status=$(curl --noproxy '*' -sS --max-time 5 -o "$scratch/denied.json" \
+        -w '%{http_code}' "$base$route") || return 1
+      if [[ "$status" != 401 ]]; then
+        echo "Anonymous request to $route returned HTTP $status, expected 401" >&2
+        return 1
+      fi
+      python3 -c '
+import json
+import sys
+
+response = json.load(sys.stdin)
+if not isinstance(response, dict) or response.get("code") != "COORDINATOR_UNAUTHORIZED":
+    sys.exit("Expected a coordinator authentication error")
+' < "$scratch/denied.json" || return 1
+    done
+    return 0
+  fi
+
   content_type=$(curl --noproxy '*' -fs --max-time 5 -o /dev/null \
     -w '%{content_type}' "$base/api/v1/snapshot") || return 1
   [[ "$content_type" == application/json* ]] || return 1
@@ -154,7 +194,7 @@ if [[ ! "$binding" =~ ^127\.0\.0\.1:([0-9]+)$ ]]; then
 fi
 candidate_port=${BASH_REMATCH[1]}
 if ! wait_for_frontend "$candidate_port" || ! check_api "$candidate_port"; then
-  echo 'Frontend candidate failed the HTML, asset, snapshot or SSE checks.' >&2
+  echo 'Frontend candidate failed the HTML, asset or API checks.' >&2
   exit 1
 fi
 
