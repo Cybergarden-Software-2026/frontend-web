@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {headerAlerts,countdown} from '../src/domain/alerts.ts';
+import {COORDINATOR_TEAM} from '../src/domain/incidents.ts';
+const now=Date.parse('2026-11-22T10:00:00Z');
+const item={sysId:'1',id:'INC1',header:'Incident',stateEnum:'Assigned',stateId:0,priorityId:2,assignedGroupName:'Resolution team',submitDate:new Date(now-80*60000).toISOString(),deadline:new Date(now+20*60000).toISOString(),lastAssignmentToTeamDateTime:new Date(now).toISOString()};
+test('exactly 20 percent is ordinary; a millisecond below enters the header',()=>{assert.equal(headerAlerts([item],now).length,0);assert.equal(headerAlerts([item],now+1)[0].reason,'Истекает')});
+test('coordinator wait must exceed eight minutes and be assigned to the coordinator team',()=>{const i={...item,assignedGroupName:COORDINATOR_TEAM,lastAssignmentToTeamDateTime:new Date(now-8*60000).toISOString(),deadline:new Date(now+80*60000).toISOString()};assert.equal(headerAlerts([i],now).length,0);assert.equal(headerAlerts([i],now+1)[0].kind,'waiting');assert.equal(headerAlerts([{...i,assignedGroupName:''}],now+1).length,0)});
+test('critical Research remains with a team until resolution or closure',()=>{const i={...item,stateEnum:'Research',priorityId:4};assert.equal(headerAlerts([i],now)[0].kind,'critical');for(const stateEnum of ['Resolved','Closed'])assert.equal(headerAlerts([{...i,stateEnum}],now).length,0)});
+test('assigned overdue noncritical disappears while unassigned overdue remains',()=>{const i={...item,deadline:new Date(now-1000).toISOString()};assert.equal(headerAlerts([i],now).length,0);assert.equal(headerAlerts([{...i,assignedGroupName:''}],now)[0].kind,'deadline');assert.equal(countdown(i,now),'−00:00:01')});

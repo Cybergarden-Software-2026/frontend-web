@@ -97,6 +97,7 @@ export function PhonePairing() {
       <Icon name="phone" size={16}/>Подключить телефон
     </button>
     {open && <Dialog title="Подключить телефон" onClose={close} className="phone-pairing-dialog">
+      <p><a href="/mobile/" target="_blank" rel="noopener noreferrer">Открыть мобильное веб-приложение</a></p>
       {loading && <p role="status">Загружаем QR-код…</p>}
       {pairing && <div className="phone-pairing-code">
         <p>Отсканируйте QR-код в приложении UnderCtrl, чтобы войти в свой аккаунт на телефоне.</p>

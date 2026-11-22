@@ -11,6 +11,7 @@ Status reflects the committed implementation in the owning repository. Productio
 | `GET/POST/DELETE /api/v1/auth/coordinator/session` and protected dashboard routes | `backend` and `frontend-web` | Implemented (enabled by configuration) |
 | Personal coordinator accounts with password and individual key, plus assignment attribution | `backend` and `frontend-web` | Implemented (enabled by `COORDINATOR_ACCOUNTS_ENABLED`) |
 | Personal QR sign-in on mobile, account notifications, device token rotation and Firebase delivery for `critical.raised` | `backend` and `frontend-web` | Implemented (enabled per deployment) |
+| Separate QR-authenticated mobile PWA at `/mobile/`, account-bound offline cache and FCM registration | `frontend-web` | Implemented |
 | Current incidents and the three dashboard header conditions via `GET /api/v1/mobile/incidents` | `backend` | Implemented (personal mobile session) |
 | `GET /api/v1/snapshot` and `GET /api/v1/dashboard` | `backend` | Implemented |
 | `GET /api/v1/incidents` with page and cursor pagination, and `GET /api/v1/incidents/{key}?view=web` | `backend` | Implemented |

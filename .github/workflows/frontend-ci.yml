@@ -39,3 +39,30 @@ jobs:
         run: |
           pnpm build
           test -s dist/index.html
+
+      - name: Install mobile PWA dependencies
+        working-directory: mobile-web
+        run: pnpm install --frozen-lockfile --prod=false
+
+      - name: Test and build mobile PWA
+        working-directory: mobile-web
+        env:
+          APP_BASE_PATH: /mobile/
+          VITE_API_BASE_URL: /api/v1
+        run: |
+          pnpm test
+          pnpm build
+          node tests/render-ui.mjs
+          test -s dist/service-worker.js
+          test -s dist/manifest.webmanifest
+
+      - name: Check production container and mobile routing
+        run: |
+          docker build --tag underctrl-frontend:ci .
+          docker run -d --name underctrl-ci -p 127.0.0.1:18085:8080 underctrl-frontend:ci
+          trap 'docker logs underctrl-ci; docker rm -f underctrl-ci' EXIT
+          for attempt in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:18085/healthz && break
+            sleep 1
+          done
+          node mobile-web/tests/deployment.mjs http://127.0.0.1:18085

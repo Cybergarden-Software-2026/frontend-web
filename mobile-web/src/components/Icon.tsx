@@ -1,0 +1,53 @@
+import type { CSSProperties } from 'react';
+const glyphs: Record<string, string> = {
+ download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
+ archive: '<path d="M4 8h16v13H4zM3 3h18v5H3zM9 12h6"/>',
+ globe: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4.4" ry="9"/><path d="M3 12h18M4.7 6.8a19 19 0 0 0 14.6 0M4.7 17.2a19 19 0 0 1 14.6 0"/>',
+ eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+ eyeOff: '<path d="m3 3 18 18M10.6 5.1A12 12 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3.2 4M6.2 6.2A19 19 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 5.2-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+ logout: '<path d="M9 4H4v16h5m5-12 4 4-4 4m-5-4h13"/>',
+ signal: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/>',
+ sound: '<path d="M11 4 6 8H2v8h4l5 4V4Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
+ mute: '<path d="M11 4 6 8H2v8h4l5 4V4Zm5 5 5 6m0-6-5 6"/>',
+
+ star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/>',
+ refresh: '<path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1.5L20 8M4 16l2.3 2.5A7 7 0 0 0 18 17"/>',
+ settings: '<path d="m9 3-.7 2.3-2 .9-2.2-.6-2 3.4 1.6 1.7v2.6L2.1 15l2 3.4 2.2-.6 2 .9L9 21h4l.7-2.3 2-.9 2.2.6 2-3.4-1.6-1.7v-2.6L19.9 9l-2-3.4-2.2.6-2-.9L13 3H9Z"/><circle cx="11" cy="12" r="3"/>',
+ density: '<path d="M4 5h16M4 10h16M4 15h16M4 20h16"/>',
+ bookmark: '<path d="M6 3h12v18l-6-4-6 4V3Z"/>',
+ trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
+ keyboard: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h1m3 0h1m3 0h1m3 0h.1M6 13h1m3 0h1m3 0h1m3 0h.1M7 16h10"/>',
+
+  bolt: '<path d="M13.8 2.7 4.7 13h5.6l-1 8.3 10-11.9h-6l.5-6.7Z" fill="currentColor" stroke="none"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/><rect x="3" y="14" width="7" height="7" rx="1.4"/><rect x="14" y="14" width="7" height="7" rx="1.4"/>',
+  chart: '<path d="M4 4v16h16M9 16v-4m5 4V8m5 8V5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  pulse: '<path d="M2 12h5l3-7 4 14 3-7h5"/>',
+  people: '<path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2m19 0v-2a4 4 0 0 0-3-3.9M16 3.2a4 4 0 0 1 0 7.6"/><circle cx="9.5" cy="7" r="4"/>',
+  book: '<path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1 0-4h13M8 7h7m-7 4h5"/>',
+  layers: '<path d="m12 2 10 5-10 5L2 7l10-5Zm10 10-10 5-10-5m20 5-10 5-10-5"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.1"/><path d="M11 18.5h2"/>',
+  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12a2 2 0 0 0 4 0"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  alert: '<path d="M10.3 4.4 3.2 17a2 2 0 0 0 1.7 3h14.2a2 2 0 0 0 1.7-3L13.7 4.4a2 2 0 0 0-3.4 0ZM12 9v4m0 3.5h.01"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  circleCheck: '<circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/>',
+  inbox: '<path d="M3 13 6 5h12l3 8v6H3v-6Zm0 0h5l2 3h4l2-3h5"/>',
+  search: '<circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/>',
+  filter: '<path d="M4 7h16M4 17h16m-9-13v6m4 4v6"/>',
+  sort: '<path d="m8 8 4-4 4 4m-8 8 4 4 4-4"/>',
+  left: '<path d="m14 6-6 6 6 6"/>',
+  right: '<path d="m10 6 6 6-6 6"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
+  spark: '<path d="M10 3c.9 4.5 2.5 6.1 7 7-4.5.9-6.1 2.5-7 7-.9-4.5-2.5-6.1-7-7 4.5-.9 6.1-2.5 7-7Zm8 10c.5 2.5 1.5 3.5 4 4-2.5.5-3.5 1.5-4 4-.5-2.5-1.5-3.5-4-4 2.5-.5 3.5-1.5 4-4Z"/>',
+  dotMenu: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  flask: '<path d="M9 3h6m-5 0v7l-6 8a2 2 0 0 0 1.6 3h12.8a2 2 0 0 0 1.6-3l-6-8V3M7 14h10"/>',
+  pin: '<path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/>',
+  userPlus: '<circle cx="9" cy="7" r="3.5"/><path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2m4-13v6m-3-3h6"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+  monitor: '<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M12 17v4m-4 0h8"/>'
+};
+export function Icon({ name, size = 20, style }: {name: string; size?: number; style?: CSSProperties}) {
+  return <svg className="icon" aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={style} dangerouslySetInnerHTML={{__html: glyphs[name] ?? glyphs.grid}} />;
+}
