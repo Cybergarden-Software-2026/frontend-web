@@ -10,7 +10,7 @@ import { massGroupRouting } from '../domain/massProblems';
 import type { useMassClusters } from '../data/useMassClusters';
 import { api } from '../data/api';
 import { AssignTeam } from './AssignTeam';
-import { AssignIncidentGroup } from './AssignIncidentGroup';
+import { AssignIncidentGroup, useGroupAssignment } from './AssignIncidentGroup';
 
 interface Props {
  workspace: ReturnType<typeof useMassClusters>;
@@ -27,7 +27,7 @@ export function ProblemClusters({ workspace, snapshot, connected, onOpen, onAcce
  const byId = useMemo(() => new Map(items.map(item => [item.sysId, item])), [items]);
  const [selection, setSelection] = useState<{ id: string; ids: string[] } | null>(null);
  const [individual, setIndividual] = useState<{ sysId: string; groupId: string } | null>(null);
- const [batch, setBatch] = useState<{ title: string; ids: string[]; team: string } | null>(null);
+ const assignment = useGroupAssignment(snapshot, onAccept);
  const [adding, setAdding] = useState<ProblemCluster | null>(null);
  const [showRemoved, setShowRemoved] = useState(false);
  const [notice, setNotice] = useState<{ sysId: string; text: string } | null>(null);
@@ -73,7 +73,7 @@ export function ProblemClusters({ workspace, snapshot, connected, onOpen, onAcce
     </div>
     {removed.length > 0 && <button className="mass-removed-toggle" onClick={() => setShowRemoved(true)}>Исключённые из подбора · {removed.length}</button>}
    </aside>
-   {active ? <MassGroupDetails key={active.id} group={active} items={items} connected={writable} onOpen={onOpen} onExclude={item => void exclude(item, active.id)} onSeparate={item => setIndividual({ sysId: item.sysId, groupId: active.id })} onAdd={() => setAdding(active)} onAssign={team => setBatch({ title: active.title, ids: [...active.sysIds], team })}/>
+   {active ? <MassGroupDetails key={active.id} group={active} items={items} connected={writable} assignmentReady={snapshot !== null && snapshot.revision === view?.revision} onOpen={onOpen} onExclude={item => void exclude(item, active.id)} onSeparate={item => setIndividual({ sysId: item.sysId, groupId: active.id })} onAdd={() => setAdding(active)} onAssign={(team, ids) => assignment.start(active.title, ids, team)}/>
     : <section className="surface mass-detail-panel mass-no-selection"><Empty icon="layers" title={empty}>{view && !loadError ? 'Связанные инциденты появятся здесь автоматически.' : ''}</Empty></section>}
   </div>
   {showRemoved && <Dialog title="Исключённые из подбора" onClose={() => setShowRemoved(false)}>
@@ -86,18 +86,18 @@ export function ProblemClusters({ workspace, snapshot, connected, onOpen, onAcce
    const item = updated.items.find(row => row.sysId === individual.sysId);
    if (item) void exclude(item, individual.groupId, updated.revision, 'Команда назначена, но исключение из группы не выполнено. ');
   }}/>}
-  {batch && snapshot && <AssignIncidentGroup title={batch.title} memberIds={batch.ids} initialTeam={batch.team} snapshot={snapshot} onAccept={onAccept} onClose={() => setBatch(null)}/>}
+  {snapshot && <AssignIncidentGroup controls={assignment} snapshot={snapshot}/>}
  </section>;
 }
 
-function MassGroupDetails({group,items,connected,onOpen,onExclude,onSeparate,onAdd,onAssign}:{group:ProblemCluster;items:Incident[];connected:boolean;onOpen:(id:string)=>void;onExclude:(item:Incident)=>void;onSeparate:(item:Incident)=>void;onAdd:()=>void;onAssign:(team:string)=>void}){
+function MassGroupDetails({group,items,connected,assignmentReady,onOpen,onExclude,onSeparate,onAdd,onAssign}:{group:ProblemCluster;items:Incident[];connected:boolean;assignmentReady:boolean;onOpen:(id:string)=>void;onExclude:(item:Incident)=>void;onSeparate:(item:Incident)=>void;onAdd:()=>void;onAssign:(team:string,ids:string[])=>void}){
  const members=group.sysIds.flatMap(id=>{const item=items.find(row=>row.sysId===id);return item?[item]:[];}),routing=massGroupRouting(members);
  const [teams,setTeams]=useState<string[]>([]),[team,setTeam]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState(false),[retry,setRetry]=useState(0);
  useEffect(()=>{let alive=true;setLoading(true);setError(false);api.teams().then(result=>{if(alive)setTeams([...new Set(result.items.map(row=>row.name))].sort((a,b)=>a.localeCompare(b,'ru')));}).catch(()=>{if(alive)setError(true);}).finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};},[retry]);
  const active=members.filter(requiresAttention);
  return <section className="surface mass-detail-panel" aria-labelledby="mass-group-title"><header className="mass-detail-heading"><span className="mass-detail-icon"><Icon name="layers" size={17}/></span><div><h2 id="mass-group-title">{group.title}</h2><p>{members.length} в группе · {active.length} активных</p></div></header><span className={`mass-routing mass-routing-${routing.tone}`}>{routing.label}</span>
   <section className="mass-composition" aria-labelledby="mass-composition-title"><h3 id="mass-composition-title">Состав группы</h3><ul>{members.map(item=><li key={item.sysId}><a href={`#incident/${encodeURIComponent(item.sysId)}?from=problems`} className="mass-member-link" onClick={event=>{event.preventDefault();onOpen(item.sysId);}}><strong>{item.id}</strong><b>{item.header}</b><span>{item.shortDescription||item.description||'Описание не указано'}</span></a><div className="mass-member-actions"><button className="mass-member-separate" title="Назначить отдельно и исключить из группы" aria-label={`Назначить отдельно ${item.id}`} disabled={!connected||!canAssign(item)} onClick={()=>onSeparate(item)}><Icon name="userPlus" size={15}/></button><span className={`mass-member-priority mass-priority-${item.priorityId}`}>P{5-item.priorityId}</span><button className="mass-member-remove" title="Убрать из группы" aria-label={`Исключить ${item.id} из группы`} disabled={!connected} onClick={()=>onExclude(item)}><Icon name="close" size={14}/></button></div></li>)}</ul><button className="mass-add-incidents" disabled={!connected} onClick={onAdd}><Icon name="plus" size={14}/>Добавить инциденты</button></section>
-  <section className="mass-route-section" aria-labelledby="mass-route-title"><h3 id="mass-route-title">Направить одной команде</h3><p>Команда назначается всем активным участникам группы.</p><div className="mass-route-controls"><div className="mass-team-field"><span id="mass-team-label">Группа назначения</span><FilterSelect label="Группа назначения" searchLabel="Найти команду" hideLabel value={team} onChange={setTeam} options={[{id:'',label:loading?'Загружаем команды…':error?'Не удалось загрузить команды':'Выберите команду'},...teams.map(name=>({id:name,label:name}))]}/></div><button className="mass-route-button" disabled={!connected||!team||loading||error||!active.length} onClick={()=>onAssign(team)}><Icon name="userPlus" size={16}/>Назначить группе</button></div>{error&&<p className="mass-teams-error">Не удалось загрузить справочник. <button className="text-button" onClick={()=>setRetry(value=>value+1)}>Повторить</button></p>}</section>
+  <section className="mass-route-section" aria-labelledby="mass-route-title"><h3 id="mass-route-title">Направить одной команде</h3><p>{connected&&!assignmentReady?'Обновляем состав группы…':'Выбранная команда заменит текущие назначения у всех активных инцидентов группы.'}</p><div className="mass-route-controls"><div className="mass-team-field"><span id="mass-team-label">Группа назначения</span><FilterSelect label="Группа назначения" searchLabel="Найти команду" hideLabel value={team} onChange={setTeam} options={[{id:'',label:loading?'Загружаем команды…':error?'Не удалось загрузить команды':'Выберите команду'},...teams.map(name=>({id:name,label:name}))]}/></div><button className="mass-route-button" disabled={!connected||!assignmentReady||!team||loading||error||!active.length} onClick={()=>onAssign(team,active.map(item=>item.sysId))}><Icon name="userPlus" size={16}/>Назначить группе</button></div>{error&&<p className="mass-teams-error">Не удалось загрузить справочник. <button className="text-button" onClick={()=>setRetry(value=>value+1)}>Повторить</button></p>}</section>
  </section>;
 }
 function AddMassIncidents({group,groups,items,editable,onClose,onAdd}:{group:ProblemCluster;groups:ProblemCluster[];items:Incident[];editable:boolean;onClose:()=>void;onAdd:(items:Incident[])=>void}){
