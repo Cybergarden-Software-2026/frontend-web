@@ -15,7 +15,6 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
   const pendingId = useRef<string | null>(null);
   const active = useRef(true);
   const inFlight = useRef(false);
-  const callDialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{message: string; retry: boolean} | null>(null);
 
@@ -55,10 +54,7 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
         onExpired();
         return;
       }
-      if (outdated) {
-        callDialog.current?.close();
-        refresh();
-      }
+      if (outdated) refresh();
       setError({message: message(failure), retry});
     } finally {
       inFlight.current = false;
@@ -66,23 +62,17 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
     }
   }
 
+  const label = <><Icon name="handset" size={18}/>Связаться с командой</>;
+
   return <div className="mobile-team-contact">
-    <button type="button" className="button outline" aria-haspopup="dialog" disabled={busy} aria-busy={busy} onClick={() => {
+    {telephone ? <a className="button outline" href={telephone} aria-disabled={busy} aria-busy={busy} onClick={event => {
+      if (inFlight.current) {
+        event.preventDefault();
+        return;
+      }
+      // Preserve the link's default action so the same tap opens the dialer.
       void record();
-      callDialog.current?.showModal();
-    }}>
-      <Icon name="handset" size={18}/>Связаться с командой
-    </button>
-    <dialog ref={callDialog} className="mobile-team-call-dialog" aria-labelledby="team-call-title" aria-describedby="team-call-detail">
-      <h2 id="team-call-title">{telephone ? 'Открыть приложение «Телефон»?' : 'Рабочий номер команды недоступен'}</h2>
-      <p id="team-call-detail">{telephone ? <>Будет подставлен номер <strong>{telephone.slice(4)}</strong>.</> : 'Позвонить можно после добавления рабочего номера.'}</p>
-      <div className="mobile-team-call-actions">
-        <button type="button" className="button outline" onClick={() => callDialog.current?.close()}>{telephone ? 'Отмена' : 'Понятно'}</button>
-        {telephone && <a className="button primary" href={telephone} onClick={() => callDialog.current?.close()}>
-          Открыть телефон
-        </a>}
-      </div>
-    </dialog>
+    }}>{label}</a> : <button type="button" className="button outline" disabled>{label}</button>}
     {error && <>
       <p role="alert" className="error">{error.message}</p>
       {error.retry && telephone && <button type="button" className="text-button" onClick={() => void record()}>Повторить запись</button>}
