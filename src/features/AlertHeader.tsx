@@ -20,7 +20,7 @@ function HeaderDeadline({item,now}:{item:Incident;now:number}){
  return <span className={`sla sla-${kind}`} title={label}><strong>{value}</strong><small>{label}</small></span>;
 }
 
-export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStatus}:{signalSequence:number;audioStatus:string;items:Incident[];now:number;onOpen:(id:string)=>void;onJournal:()=>void;unread:number}) {
+export function AlertHeader({items,now,onOpen,onJournal,signalSequence,audioStatus}:{signalSequence:number;audioStatus:string;items:Incident[];now:number;onOpen:(id:string)=>void;onJournal:()=>void}) {
  const alerts=useMemo(()=>headerAlerts(items,now),[items,Math.floor(now/1000)]);
  const deck=useRef<HTMLDivElement>(null);
  const [capacity,setCapacity]=useState(3),[page,setPage]=useState(0),[paused,setPaused]=useState(false);
