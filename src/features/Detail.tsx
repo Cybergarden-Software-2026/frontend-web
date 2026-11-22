@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Analysis, ChangeEvent, Incident, Snapshot } from '../domain/incidents';
 import { EVENT_LABELS, describeEvent } from '../domain/incidents';
+import { formAllocationLabel } from '../domain/deadlineDisplay';
 import { canAssign } from '../domain/operations';
 import { Status, Dialog, Empty, dateTime } from '../components/ui';
 import { Icon } from '../components/Icon';
@@ -147,6 +148,7 @@ function Detail({ item, snapshot, revision, present, online, now, onBack, backLa
  }, [aiOpen, item.sysId, revision, online, present]);
  useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 1800); return () => clearTimeout(timer); }, [copied]);
  const sla = detailSla(item, now);
+ const allocation = formAllocationLabel(item);
  const priority = ({ 4: 'P1 · Критический', 3: 'P2 · Высокий', 2: 'P3 · Средний', 1: 'P4 · Низкий' } as Record<number, string>)[item.priorityId] || item.priority || 'Приоритет не указан';
  const facts = [['Продукт', item.productName], ['Сервис', item.service], ['Сценарий использования', item.scenarioName],
   ['Тип сервиса', item.serviceType], ['Влияние', item.impact], ['Срочность', item.urgency]];
@@ -192,7 +194,11 @@ function Detail({ item, snapshot, revision, present, online, now, onBack, backLa
    <aside className="incident-detail-aside" aria-label="Координация инцидента">
     <section className={`surface detail-card incident-deadline deadline-${sla.kind}`} aria-label="Сроки инцидента">
      <div className="detail-deadline-band" role="timer" aria-live="off"><span>{sla.label}</span><strong>{sla.value}</strong></div>
-     <dl className="detail-table deadline-dates"><DetailRow label="Регистрация" value={detailDate(item.submitDate)}/><DetailRow label="Дедлайн" value={detailDate(item.deadline)}/></dl>
+     <dl className="detail-table deadline-dates">
+      <DetailRow label="Регистрация" value={detailDate(item.submitDate)}/>
+      {allocation && <DetailRow label="Выделено на решение" value={allocation}/>}
+      <DetailRow label="Дедлайн" value={detailDate(item.deadline)}/>
+     </dl>
     </section>
     <section className="surface detail-card incident-owner"><h2>Ответственные</h2>
      <dl className="detail-table"><DetailRow label="Команда" value={item.assignedGroupName} empty="Не назначена"/><DetailRow label="Исполнитель" value={item.assignedEmployee} empty="Не назначен"/><DetailRow label="Логин исполнителя" value={item.assignedEmployeeLogin}/><DetailRow label="Назначение команде" value={detailDate(item.lastAssignmentToTeamDateTime)}/></dl>

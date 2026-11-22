@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { displaySlaKind } from '../src/domain/deadlineDisplay.ts';
+import { displaySlaKind, formAllocationLabel } from '../src/domain/deadlineDisplay.ts';
 import { slaKind, belongs } from '../src/domain/incidents.ts';
 import { detailDate, detailSla } from '../src/features/detailPresentation.ts';
 const now = Date.parse('2026-11-21T07:00:00Z');
@@ -46,4 +46,14 @@ test('deadline color category uses a percentage rather than a fixed thirty minut
  assert.equal(displaySlaKind(edge,now),'normal');assert.equal(displaySlaKind(edge,now+1),'soon');
  assert.equal(displaySlaKind(record,now+3*3600_000),'late');
  for(const stateEnum of ['Resolved','Closed'])assert.ok(['restored','closed'].includes(displaySlaKind({...record,stateEnum},now)));
+});
+
+test('native form detail shows the whole allocation only when the report has a deadline', () => {
+ const record = { id: 'INC-FORM-5', submitDate: '2026-11-21T23:30:00Z', deadline: '2026-11-22T01:00:00Z' };
+ assert.equal(formAllocationLabel(record), '1 ч 30 мин');
+ assert.equal(formAllocationLabel({ ...record, deadline: '2026-11-22T00:30:00Z' }), '1 ч');
+ assert.equal(formAllocationLabel({ ...record, deadline: '2026-11-21T23:31:00Z' }), '1 мин');
+ assert.equal(formAllocationLabel({ ...record, deadline: null }), null);
+ assert.equal(formAllocationLabel({ ...record, id: 'INC-WEB-5' }), null);
+ assert.equal(formAllocationLabel({ ...record, deadline: record.submitDate }), null);
 });

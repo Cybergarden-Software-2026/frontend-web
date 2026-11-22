@@ -1,6 +1,6 @@
 import {Icon} from '../components/Icon.tsx';
 import {countdown} from '../domain/alerts.ts';
-import {displaySlaKind} from '../domain/deadlineDisplay.ts';
+import {displaySlaKind, formAllocationLabel} from '../domain/deadlineDisplay.ts';
 import {belongs, COORDINATOR_TEAM, STATES, stateOf, timestamp} from '../domain/incidents.ts';
 import {mobileIncident, type MobileIncident} from '../domain/mobileIncidents.ts';
 import {CoordinationClaimAction} from './CoordinationClaimAction.tsx';
@@ -33,6 +33,7 @@ export function IncidentDetail({item, revision, now, onBack, owner, refresh, onE
   const incident = mobileIncident(item);
   const state = stateOf(incident);
   const sla = displaySlaKind(incident, now);
+  const allocation = formAllocationLabel(incident);
   const stopped = sla === 'restored' || sla === 'closed';
   const deadlineLabel = stopped ? 'Остановлен' : sla === 'unknown' ? 'Срок не указан' : sla === 'late' ? 'Просрочка' : 'До дедлайна';
   const team = item.assignedGroupName?.trim();
@@ -69,6 +70,7 @@ export function IncidentDetail({item, revision, now, onBack, owner, refresh, onE
           </div>
           <dl className="mobile-detail-table">
             <div><dt>Регистрация</dt><dd>{dateLabel(item.submitDate)}</dd></div>
+            {allocation && <div><dt>Выделено на решение</dt><dd>{allocation}</dd></div>}
             <div><dt>Дедлайн</dt><dd>{dateLabel(item.deadline)}</dd></div>
           </dl>
         </section>

@@ -16,6 +16,8 @@ Status reflects the committed implementation in the owning repository. Productio
 | Team phone numbers in `GET /api/v1/teams` and `GET /api/v1/mobile/incidents` | `backend` | Implemented |
 | `POST /api/v1/mobile/incidents/{sysId}/team-contact` and `team_contacted` event projection | `backend` | Implemented (personal mobile session) |
 | Team phone display, mobile call action with contact recording and web journal label | `frontend-web` | Implemented |
+| Public incident form and direct submission to the incident queue via `/api/v1/incident-reports` | `backend` | Implemented |
+| Original time allocation in the web and mobile incident details | `frontend-web` | Implemented |
 | `GET /api/v1/snapshot` and `GET /api/v1/dashboard` | `backend` | Implemented |
 | `GET /api/v1/incidents` with page and cursor pagination, and `GET /api/v1/incidents/{key}?view=web` | `backend` | Implemented |
 | `GET /api/v1/teams` and rules-based `GET /api/v1/incidents/{key}/analysis` | `backend` | Implemented |
@@ -101,6 +103,29 @@ Mobile sessions have no fixed expiry. A fresh QR login for the same account and 
 To display header cards, select items with a non-null `headerKind`. Values are `critical`, `waiting` and `deadline`, in order of precedence when a ticket matches multiple conditions. Each item has `sysId`, `id`, `header`, `normalizedState`, `priorityId`, `assignedGroupName`, `submitDate`, `lastAssignmentToTeamDateTime`, `deadline` and `headerKind`. All items come from one snapshot revision. The server evaluates them at `serverTime` on each request, so a time threshold can change the cards within the same revision. Before the first successful import this route returns `503 SOURCE_NOT_READY`. After a successful empty import it returns `200` with `items: []`.
 
 Each mobile incident also has `teamPhone` and `teamPhoneIsTest`. For a resolution team with a valid international-format `teamPhone`, tapping «Связаться с командой» starts a keepalive request and follows the `tel:` link with the same tap. The client uses the supplied number regardless of `teamPhoneIsTest`. A missing or invalid number disables the action. The request sends the displayed `assignedGroupName` as `team` and a UUID `requestId`. After a network failure, «Повторить запись» retries with the same UUID. The backend validates the assignment and records the authenticated coordinator and server time. See the [team contact examples and errors](https://github.com/Cybergarden-Software-2026/backend/blob/main/docs/mobile.md#связь-с-командой).
+
+### Public incident form
+
+Open `GET /api/v1/incident-reports/form` on the dashboard domain. The browser sends JSON to `POST /api/v1/incident-reports` without a coordinator session. Each report starts in `Assigned` in the coordinator group and appears through the standard incident snapshot and event stream. The form writes to the dashboard's PostgreSQL database.
+
+```json
+{
+  "submission_id": "11111111-2222-4333-8444-555555555555",
+  "title": "The customer portal is unavailable",
+  "description": "The sign-in page times out for multiple users.",
+  "service": "Customer portal",
+  "priority": "P2",
+  "allocated_minutes": 90
+}
+```
+
+Send a canonical lowercase UUIDv4 in `submission_id`. The server trims the three text fields. The title and service accept 1–160 characters each, and the description accepts 1–5000. Priority accepts `P1`, `P2`, `P3`, or `P4`. The request body is limited to 32 KiB.
+
+The first successful submission returns `201 {"id":"INC-FORM-123","created":true}`. Sending the same fields with the same UUID returns `200` with the original number and `created:false`. Changed fields with the same UUID return `409`. A `429` response includes `Retry-After`. Use the coordinator dashboard to view or assign reports.
+
+The optional `allocated_minutes` field accepts 1–525600 whole minutes. The backend saves the original duration as `allocatedMinutes` on the incident and sets its `deadline` to the server's `submitDate` plus that duration. Omit the field or send `null` to create a report without a deadline. Retrying the same UUID preserves the original deadline. Changing the duration for that UUID returns `409`.
+
+The web and mobile incident details display the original allocation under «Выделено на решение» for native form reports with a deadline. They derive it from the interval between the registration date and the deadline. The queue continues to show the remaining SLA time.
 
 ## 1. Get a snapshot and find incident identifiers
 
