@@ -64,14 +64,19 @@ export function ProblemClusters({ workspace, snapshot, connected, onOpen, onAcce
   <div className="mass-workspace">
    <aside className="surface mass-groups-panel" aria-labelledby="mass-title">
     <h1 id="mass-title">Группы инцидентов</h1>
-    <div className="mass-groups-list">
+    {clusters.length > 0 ? <ul className="mass-groups-list" role="list">
      {clusters.map(group => {
       const members = group.sysIds.flatMap(id => { const item = byId.get(id); return item ? [item] : []; });
       const routing = massGroupRouting(members);
-      return <button className={group.id === active?.id ? 'mass-group-choice mass-choice-selected' : 'mass-group-choice'} key={group.id} aria-pressed={group.id === active?.id} onClick={() => setSelection({ id: group.id, ids: group.sysIds })}><strong>{group.title}</strong><span>{group.sysIds.length} в группе · {routing.label}</span></button>;
+      const descriptionId = `mass-group-summary-${encodeURIComponent(group.id)}`;
+      const selectedGroup = group.id === active?.id;
+      return <li key={group.id}>
+       <button type="button" className={selectedGroup ? 'mass-group-choice mass-choice-selected' : 'mass-group-choice'} aria-label={group.title} aria-describedby={descriptionId} aria-pressed={selectedGroup} onClick={() => setSelection({ id: group.id, ids: group.sysIds })}>
+        <strong>{group.title}</strong><span id={descriptionId}>{group.sysIds.length} в группе · {routing.label}</span>
+       </button>
+      </li>;
      })}
-     {!clusters.length && <p className="mass-list-empty" role="status">{empty}</p>}
-    </div>
+    </ul> : <p className="mass-list-empty" role="status">{empty}</p>}
     {removed.length > 0 && <button className="mass-removed-toggle" onClick={() => setShowRemoved(true)}>Исключённые из подбора · {removed.length}</button>}
    </aside>
    {active ? <MassGroupDetails key={active.id} group={active} items={items} connected={writable} revision={view?.revision} assignmentReady={snapshot !== null && snapshot.revision === view?.revision} onOpen={onOpen} onExclude={item => void exclude(item, active.id)} onSeparate={item => setIndividual({ sysId: item.sysId, groupId: active.id })} onAdd={() => setAdding(active)} onAssign={(team, ids) => assignment.start(active.title, ids, team)}/>
