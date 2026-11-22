@@ -15,6 +15,7 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
   const pendingId = useRef<string | null>(null);
   const active = useRef(true);
   const inFlight = useRef(false);
+  const callDialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<{message: string; retry: boolean} | null>(null);
@@ -57,7 +58,10 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
         onExpired();
         return;
       }
-      if (outdated) refresh();
+      if (outdated) {
+        callDialog.current?.close();
+        refresh();
+      }
       setError({message: message(failure), retry});
     } finally {
       inFlight.current = false;
@@ -66,18 +70,22 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
   }
 
   return <div className="mobile-team-contact">
-    {telephone ? <a className="button outline" href={telephone} aria-disabled={busy} aria-busy={busy} onClick={event => {
-      if (inFlight.current) {
-        event.preventDefault();
-        return;
-      }
-      // Start the request in this click and let the link open the dialer directly.
+    <button type="button" className="button outline" aria-haspopup="dialog" disabled={busy} aria-busy={busy} onClick={() => {
       void record();
+      callDialog.current?.showModal();
     }}>
       <Icon name="handset" size={18}/>Связаться с командой
-    </a> : <button type="button" className="button outline" disabled={busy} aria-busy={busy} onClick={() => void record()}>
-      <Icon name="check" size={18}/>Отметить контакт
-    </button>}
+    </button>
+    <dialog ref={callDialog} className="mobile-team-call-dialog" aria-labelledby="team-call-title" aria-describedby="team-call-detail">
+      <h2 id="team-call-title">{telephone ? 'Открыть приложение «Телефон»?' : 'Рабочий номер команды недоступен'}</h2>
+      <p id="team-call-detail">{telephone ? <>Будет подставлен номер <strong>{telephone.slice(4)}</strong>.</> : 'Позвонить можно после добавления рабочего номера.'}</p>
+      <div className="mobile-team-call-actions">
+        <button type="button" className="button outline" onClick={() => callDialog.current?.close()}>{telephone ? 'Отмена' : 'Понятно'}</button>
+        {telephone && <a className="button primary" href={telephone} onClick={() => callDialog.current?.close()}>
+          Открыть телефон
+        </a>}
+      </div>
+    </dialog>
     {saved && <p role="status">Контакт записан в журнал.</p>}
     {error && <>
       <p role="alert" className="error">{error.message}</p>

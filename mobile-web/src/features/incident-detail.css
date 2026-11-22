@@ -120,8 +120,18 @@
 .mobile-team-contact .button { min-height: 44px; padding: 8px 12px; }
 .mobile-team-contact .button svg { color: var(--red); }
 .mobile-team-contact .button:hover { background: #fff0f3; }
-.mobile-team-contact .button[aria-disabled="true"] { opacity: .65; cursor: default; }
 .mobile-team-contact [role="status"] { color: #206650; font-size: 13px; }
+.mobile-team-call-dialog {
+  width: min(380px, calc(100% - 32px));
+  padding: 20px;
+  border: 1px solid #e3d8ef;
+  border-radius: 20px;
+  background: #fff;
+  color: inherit;
+}
+.mobile-team-call-dialog::backdrop { background: #21133375; }
+.mobile-team-call-dialog p { margin: 8px 0 16px; color: #61576d; }
+.mobile-team-call-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 
 .mobile-detail-facts {
   display: grid;
