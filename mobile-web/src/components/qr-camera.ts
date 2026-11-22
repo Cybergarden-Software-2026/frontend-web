@@ -22,16 +22,26 @@ export function decodeQrImage(source: CanvasImageSource, sourceWidth: number, so
   return null;
 }
 
-/** play() can stay pending forever in an iOS Home Screen web app. */
-export function waitForCameraPreview(video: HTMLVideoElement, signal: AbortSignal, timeoutMs = 8000): Promise<void> {
+type PlaybackAction = (resume: (() => void) | null) => void;
+
+/** WebKit may decode video before it reports a frame to the compositor. */
+export function waitForCameraPreview(
+  video: HTMLVideoElement,
+  signal: AbortSignal,
+  timeoutMs = 8000,
+  onPlaybackAction?: PlaybackAction,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    let complete = false, frameArrived = false, frameId: number | undefined;
+    let complete = false, frameArrived = false, blocked = false;
+    let frameId: number | undefined, timeout: ReturnType<typeof setTimeout> | undefined;
+    let playAttempt = 0;
+    const initialTime = video.currentTime;
     const supportsFrameCallback = typeof video.requestVideoFrameCallback === 'function';
     const events = ['loadedmetadata', 'loadeddata', 'playing', 'resize'];
     const clean = () => {
       clearTimeout(timeout); clearInterval(poll);
       events.forEach(name => video.removeEventListener(name, check));
-      video.removeEventListener('loadedmetadata', play);
+      video.removeEventListener('loadedmetadata', playWhenReady);
       signal.removeEventListener('abort', abort);
       if (frameId !== undefined) video.cancelVideoFrameCallback?.(frameId);
     };
@@ -41,21 +51,43 @@ export function waitForCameraPreview(video: HTMLVideoElement, signal: AbortSigna
       if (error) reject(error); else resolve();
     };
     const check = () => {
-      if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0 && !video.paused && (!supportsFrameCallback || frameArrived)) finish();
+      const playingFrames = !supportsFrameCallback || frameArrived || video.currentTime > initialTime;
+      if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0 && !video.paused && playingFrames) {
+        if (blocked) onPlaybackAction?.(null);
+        finish();
+      }
+    };
+    const armTimeout = () => {
+      timeout = setTimeout(() => finish(new Error('CAMERA_PREVIEW_UNAVAILABLE')), timeoutMs);
     };
     const play = () => {
       if (complete) return;
-      void video.play().then(check).catch(() => {
-        if (!signal.aborted) finish(new Error('CAMERA_PREVIEW_UNAVAILABLE'));
+      const attempt = ++playAttempt;
+      void video.play().then(check).catch((error: unknown) => {
+        if (complete || attempt !== playAttempt) return;
+        if (error instanceof Error && error.name === 'NotAllowedError' && onPlaybackAction) {
+          blocked = true;
+          clearTimeout(timeout);
+          onPlaybackAction(() => {
+            if (complete || !blocked) return;
+            blocked = false;
+            onPlaybackAction(null);
+            armTimeout();
+            play();
+          });
+        }
+        // Attaching or starting media can interrupt play(). Metadata and frame
+        // events can still arrive, so let the preview watchdog decide.
       });
     };
+    const playWhenReady = () => { if (!blocked && video.paused) play(); };
     const abort = () => finish(new DOMException('Camera closed', 'AbortError'));
-    const timeout = setTimeout(() => finish(new Error('CAMERA_PREVIEW_UNAVAILABLE')), timeoutMs);
     const poll = setInterval(check, 100);
     events.forEach(name => video.addEventListener(name, check));
-    video.addEventListener('loadedmetadata', play);
+    video.addEventListener('loadedmetadata', playWhenReady);
     signal.addEventListener('abort', abort, {once: true});
     if (signal.aborted) { abort(); return; }
+    armTimeout();
     if (supportsFrameCallback) frameId = video.requestVideoFrameCallback(() => { frameArrived = true; check(); });
     play();
   });
@@ -77,17 +109,24 @@ export async function decodeQrPhoto(file: File): Promise<string> {
   } finally { URL.revokeObjectURL(url); }
 }
 
-export async function startQrCamera(video: HTMLVideoElement, signal: AbortSignal, onCode: (code: string) => void, onReady: () => void) {
+export async function startQrCamera(
+  video: HTMLVideoElement,
+  signal: AbortSignal,
+  onCode: (code: string) => void,
+  onReady: () => void,
+  onPlaybackAction?: PlaybackAction,
+) {
   let stream: MediaStream | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const stop = () => {
     clearTimeout(timer);
-    stream?.getTracks().forEach(track => track.stop());
+    if (!stream) return;
+    stream.getTracks().forEach(track => track.stop());
     if (video.srcObject === stream) video.srcObject = null;
+    stream = undefined;
   };
-  signal.addEventListener('abort', stop, {once: true});
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: 'environment'}, width: {ideal: 1920}, height: {ideal: 1080}}, audio: false});
+  const open = async (constraints: MediaTrackConstraints) => {
+    stream = await navigator.mediaDevices.getUserMedia({video: constraints, audio: false});
     if (signal.aborted) { stop(); return; }
     video.muted = true;
     video.defaultMuted = true;
@@ -97,8 +136,19 @@ export async function startQrCamera(video: HTMLVideoElement, signal: AbortSignal
     video.setAttribute('playsinline', '');
     video.setAttribute('webkit-playsinline', '');
     video.srcObject = stream;
-    await waitForCameraPreview(video, signal);
-    if (signal.aborted) { stop(); return; }
+    await waitForCameraPreview(video, signal, 8000, onPlaybackAction);
+  };
+  const facingMode = {ideal: 'environment'};
+  signal.addEventListener('abort', stop, {once: true});
+  try {
+    try {
+      await open({facingMode, width: {ideal: 1920}, height: {ideal: 1080}});
+    } catch (error) {
+      if (signal.aborted || !(error instanceof Error) || error.message !== 'CAMERA_PREVIEW_UNAVAILABLE') throw error;
+      stop();
+      await open({facingMode});
+    }
+    if (signal.aborted) return;
     onReady();
     const canvas = document.createElement('canvas');
     // Frame errors must reach the UI, including failures on later timer ticks.

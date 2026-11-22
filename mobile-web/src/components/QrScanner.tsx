@@ -7,6 +7,7 @@ export function QrScanner({onCode, onClose, onManual}: {onCode: (code: string) =
  const controller = useRef<AbortController | null>(null), running = useRef<Promise<void> | null>(null);
  const alive = useRef(true), code = useRef(onCode); code.current = onCode;
  const [error, setError] = useState(''), [ready, setReady] = useState(false), [attempt, setAttempt] = useState(0);
+ const [resumePlayback, setResumePlayback] = useState<(() => void) | null>(null);
  const [active, setActive] = useState(true), [visible, setVisible] = useState(!document.hidden), [readingPhoto, setReadingPhoto] = useState(false);
  useEffect(() => {
   alive.current = true;
@@ -17,20 +18,22 @@ export function QrScanner({onCode, onClose, onManual}: {onCode: (code: string) =
  useEffect(() => {
   if (!active || !visible) return;
   const request = new AbortController(); controller.current = request;
-  setError(''); setReady(false);
+  setError(''); setReady(false); setResumePlayback(null);
   // A permission prompt cannot be cancelled. Do not acquire another stream until
   // the previous request has returned and released its camera.
   const task = (running.current ?? Promise.resolve()).catch(() => {}).then(async () => {
    if (request.signal.aborted) return;
    try {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Камера доступна только по HTTPS.');
-    await startQrCamera(video.current!, request.signal, raw => code.current(raw), () => setReady(true));
+    await startQrCamera(video.current!, request.signal, raw => code.current(raw), () => setReady(true), resume => {
+     if (!request.signal.aborted) setResumePlayback(() => resume);
+    });
    } catch (e) {
     if (request.signal.aborted) return;
     setReady(false);
     const name = e instanceof Error ? e.name : '';
     setError(e instanceof Error && e.message === 'CAMERA_PREVIEW_UNAVAILABLE'
-     ? 'Разрешение получено, но приложение не запустило просмотр камеры. Перезапустите просмотр или нажмите «Снять QR камерой».'
+     ? 'Камера не передаёт изображение. Перезапустите просмотр или введите код с основного сайта.'
      : name === 'NotAllowedError' ? 'Разрешите доступ к камере в настройках приложения и повторите.'
      : name === 'NotFoundError' ? 'Камера не найдена. Введите код с основного сайта вручную.'
      : name === 'NotReadableError' ? 'Камера занята. Закройте её в других приложениях и повторите.'
@@ -42,7 +45,7 @@ export function QrScanner({onCode, onClose, onManual}: {onCode: (code: string) =
  }, [attempt, active, visible]);
  function stop() { controller.current?.abort(); }
  function takePhoto() {
-  stop(); setActive(false); setReady(false); setError('');
+  stop(); setActive(false); setReady(false); setError(''); setResumePlayback(null);
   // Keep this call in the tap handler so iOS can open its system camera.
   photo.current?.click();
  }
@@ -58,14 +61,18 @@ export function QrScanner({onCode, onClose, onManual}: {onCode: (code: string) =
   <button className="close" aria-label="Закрыть камеру" onClick={() => { stop(); onClose(); }}>×</button>
   <h2 id="scan-title">Наведите камеру на QR</h2>
   <p>Увеличьте QR под меню основного сайта и поместите его в рамку.</p>
-  <div className="camera"><video ref={video} width={640} height={480} autoPlay playsInline muted/>
-   {ready && active ? <span className="scan-frame"/> : <div className="camera-status" role="status">{!error && (active || readingPhoto) && <Spinner/>}<span>{readingPhoto ? 'Читаем QR со снимка…' : error ? 'Просмотр камеры недоступен' : active ? 'Запускаем камеру…' : 'Снимите QR целиком системной камерой'}</span></div>}
+  <div className="camera" hidden={!active}><video ref={video} width={640} height={480} autoPlay playsInline muted/>
+   {ready && <span className="scan-frame"/>}
   </div>
-  {ready && <p role="status">Ищем QR-код…</p>}
+  {!error && <p className="camera-status" role="status">
+   {!ready && !resumePlayback && (active || readingPhoto) && <Spinner/>}
+   <span>{readingPhoto ? 'Читаем QR со снимка…' : ready ? 'Ищем QR-код…' : resumePlayback ? 'Нажмите, чтобы включить изображение камеры.' : active ? 'Запускаем камеру…' : 'Снимите QR целиком системной камерой'}</span>
+  </p>}
   {error && <p className="error" role="alert">{error}</p>}
   <input ref={photo} type="file" accept="image/*" capture="environment" hidden aria-label="Снимок QR-кода" onChange={event => void readPhoto(event)}/>
-  {(error || !active) && <button className="button primary" disabled={readingPhoto} onClick={takePhoto}>Снять QR камерой</button>}
-  {(error || !active) && <button className="button outline" disabled={readingPhoto} onClick={() => { stop(); setActive(true); setAttempt(value => value + 1); }}>Перезапустить просмотр</button>}
+  {resumePlayback && <button className="button primary" onClick={resumePlayback}>Запустить видео</button>}
+  {(error || !active) && <button className="button primary" disabled={readingPhoto} onClick={() => { stop(); setActive(true); setAttempt(value => value + 1); }}>Перезапустить просмотр</button>}
+  {(error || !active || resumePlayback) && <button className="button outline" disabled={readingPhoto} onClick={takePhoto}>Снять QR камерой</button>}
   <button className="button outline" disabled={readingPhoto} onClick={() => { stop(); onManual(); }}>Ввести код вручную</button>
  </div></div>;
 }
