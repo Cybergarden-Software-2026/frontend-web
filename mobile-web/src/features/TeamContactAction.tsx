@@ -17,7 +17,6 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
   const inFlight = useRef(false);
   const callDialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<{message: string; retry: boolean} | null>(null);
 
   useEffect(() => {
@@ -26,10 +25,9 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
   }, []);
 
   async function record() {
-    if (inFlight.current) return;
+    if (!telephone || inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
-    setSaved(false);
     setError(null);
     let storedId: string | null = null;
     try { storedId = localStorage.getItem(storageKey); } catch {}
@@ -47,7 +45,6 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
     try {
       await api.recordTeamContact(sysId, team, requestId);
       clearPending();
-      if (active.current) setSaved(true);
     } catch (failure) {
       const code = failure instanceof ApiError ? failure.code : '';
       const outdated = ['INCIDENT_NOT_FOUND', 'TEAM_CONTACT_ASSIGNMENT_CHANGED', 'TEAM_CONTACT_UNAVAILABLE'].includes(code);
@@ -86,10 +83,9 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
         </a>}
       </div>
     </dialog>
-    {saved && <p role="status">Контакт записан в журнал.</p>}
     {error && <>
       <p role="alert" className="error">{error.message}</p>
-      {error.retry && <button type="button" className="text-button" onClick={() => void record()}>Повторить запись</button>}
+      {error.retry && telephone && <button type="button" className="text-button" onClick={() => void record()}>Повторить запись</button>}
     </>}
   </div>;
 }
