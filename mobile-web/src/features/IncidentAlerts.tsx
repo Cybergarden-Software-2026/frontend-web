@@ -1,24 +1,114 @@
-import {useEffect,useState} from 'react';
+import {useEffect, useState} from 'react';
 import {Icon} from '../components/Icon.tsx';
 import {Spinner} from '../components/ui.tsx';
-import {currentMobileAlerts,mobileIncident,type MobileSnapshot} from '../domain/mobileIncidents.ts';
-import {countdown} from '../domain/alerts.ts';
-import {STATES,stateOf} from '../domain/incidents.ts';
+import {currentMobileAlerts, type MobileSnapshot} from '../domain/mobileIncidents.ts';
+import {countdown, type HeaderAlert} from '../domain/alerts.ts';
+import {STATES, stateOf} from '../domain/incidents.ts';
 import {displaySlaKind} from '../domain/deadlineDisplay.ts';
-interface Props {snapshot:MobileSnapshot|null;now:number;loading:boolean;error:string;refresh:()=>void}
-function date(value:string|null){if(!value||!Number.isFinite(Date.parse(value)))return 'Не указано';return new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Europe/Moscow'}).format(Date.parse(value))+' МСК'}
-export function IncidentAlerts({snapshot,now,loading,error,refresh}:Props){
- const [filter,setFilter]=useState('all'),[hash,setHash]=useState(location.hash);
- useEffect(()=>{const change=()=>{setHash(location.hash);window.scrollTo({top:0})};window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
- const alerts=snapshot?currentMobileAlerts(snapshot,now):[];
- let selectedId='';if(hash.startsWith('#incident/'))try{selectedId=decodeURIComponent(hash.slice(10))}catch{}
- const selected=snapshot?.items.find(i=>i.sysId===selectedId);
- if(selectedId){const item=selected&&mobileIncident(selected);return <><button className="back" onClick={()=>{location.hash='alerts'}}><Icon name="left" size={18}/>Назад к важному</button>{item?<article className="surface incident-detail"><div className="incident-detail-meta"><span className="eyebrow">{item.id}</span><span className={'priority priority-'+item.priorityId}>{item.priorityId>=1&&item.priorityId<=4?'P'+(5-item.priorityId):'—'}</span></div><h1>{item.header}</h1><span className="incident-state">{STATES[stateOf(item)]}</span><section className={'deadline-panel '+displaySlaKind(item,now)}><span>{['Resolved','Closed'].includes(stateOf(item))?'Остановлен':Date.parse(item.deadline||'')<=now?'Просрочка':'До дедлайна'}</span><strong>{countdown(item,now)}</strong></section><dl><div><dt>Команда</dt><dd>{item.assignedGroupName||'Не назначена'}</dd></div><div><dt>Регистрация</dt><dd>{date(item.submitDate)}</dd></div><div><dt>Последнее назначение</dt><dd>{date(item.lastAssignmentToTeamDateTime||null)}</dd></div><div><dt>Дедлайн</dt><dd>{date(item.deadline)}</dd></div></dl></article>:<div className="surface empty-state"><Icon name="inbox" size={34}/><h2>{loading?'Загружаем инцидент…':'Инцидент отсутствует в снимке'}</h2><p>Возможно, запись уже удалена из источника. Обновите данные или вернитесь к списку.</p><button className="button outline" disabled={loading} onClick={refresh}>Обновить</button></div>}</>}
- const visible=alerts.filter(a=>filter==='all'||a.kind===filter);
- return <>{error&&<div className="connection" role="status"><Icon name="signal"/><span><strong>Не удалось обновить инциденты</strong><small>{error} {snapshot?'Последние данные могли устареть.':''}</small></span><button onClick={refresh} disabled={loading}>{loading?<Spinner/>:'Повторить'}</button></div>}
- <section className={'summary '+(alerts.length?'needs-attention':'')}><div className="key-pattern" aria-hidden="true"><i>Ctrl</i><i>МТС</i><i>{'{ }'}</i><i>+</i></div><span className="eyebrow">МТС · ЦЕНТР КООРДИНАЦИИ</span><div className="summary-heading"><div><h1>{!snapshot?'Важные инциденты':alerts.length?'Нужна ваша реакция':'Всё под контролем'}</h1><p>{snapshot?alerts.length?`${alerts.length} требуют внимания`:'Нет срочных задач':'Критические задачи, команды и сроки'}</p></div><span className="summary-symbol"><Icon name={alerts.length?'alert':snapshot?'circleCheck':'bell'} size={32}/></span></div><div className="summary-footer"><span><i className={error?'status-dot offline':'status-dot'}/>{error?'Последние сохранённые данные':'Обновляем автоматически'}</span><button className="icon-button" onClick={refresh} disabled={loading} aria-label="Обновить важные инциденты">{loading?<Spinner/>:<Icon name="refresh" size={18}/>}</button></div></section>
- <div className="alert-categories">{([['critical','alert','Критические'],['waiting','people','Ждут команды'],['deadline','clock','Истекают']] as const).map(([kind,icon,title])=><button key={kind} className={(filter===kind?'selected ':'')+kind} onClick={()=>setFilter(filter===kind?'all':kind)} aria-pressed={filter===kind}><span><Icon name={icon} size={17}/>{title}</span><strong>{snapshot?alerts.filter(a=>a.kind===kind).length:'—'}</strong></button>)}</div>
- <div className="list-heading"><div><h2>{filter==='all'?'Требуют внимания':filter==='critical'?'Критические':filter==='waiting'?'Ждут команды':'Истекают'} <span>{visible.length}</span></h2><p>Только инциденты из хедера веб-кабинета</p></div>{filter!=='all'&&<button className="text-button" onClick={()=>setFilter('all')}>Показать все</button>}</div>
- {loading&&!snapshot?<div className="loading-state"><Spinner/><span>Загружаем инциденты…</span></div>:!snapshot?<section className="surface empty-state"><span><Icon name="signal" size={35}/></span><h2>Пока нет загруженных данных</h2><p>Список появится после подключения мобильного маршрута на сервере.</p><button className="button outline" onClick={refresh} disabled={loading}>Повторить</button></section>:!visible.length?<section className="surface empty-state"><span><Icon name="circleCheck" size={35}/></span><h2>Всё под контролем</h2><p>{filter==='all'?'Критических инцидентов, ожидания распределения и истекающих сроков нет.':'В выбранной категории сейчас нет инцидентов.'}</p></section>:<div className="notice-list">{visible.map(alert=>{const item=alert.item,kind=displaySlaKind(item,now);return <button className={'notice-card incident-card '+alert.kind} key={item.sysId} onClick={()=>{location.hash='incident/'+encodeURIComponent(item.sysId)}}><span className="notice-icon"><Icon name={alert.kind==='critical'?'alert':alert.kind==='waiting'?'people':'clock'} size={21}/></span><span className="notice-copy"><span className="notice-meta"><b>{alert.reason}</b><span>{item.id}</span></span><strong>{item.header}</strong><span className="incident-team">{item.assignedGroupName||'Команда не назначена'}</span><span className="incident-card-footer"><span className="incident-state">{STATES[stateOf(item)]}</span><span className={'incident-countdown '+kind}>{countdown(item,now)}</span></span></span><Icon name="right" size={18}/></button>})}</div>}
+import {IncidentDetail} from './IncidentDetail.tsx';
+import './incident-alerts.css';
+
+interface Props {
+ snapshot: MobileSnapshot | null;
+ now: number;
+ loading: boolean;
+ error: string;
+ refresh: () => void;
+}
+
+const alertIcon = {critical: 'alert', waiting: 'people', deadline: 'clock'};
+const alertCountGrammar = new Intl.PluralRules('ru');
+const deadlineLabel = {
+ late: 'Просрочен', soon: 'Истекает', normal: 'Осталось', restored: 'Устранён',
+ closed: 'Остановлен', unknown: 'Срок не указан', research: 'Осталось',
+};
+
+function incidentId(hash: string) {
+ if (!hash.startsWith('#incident/')) return '';
+ try { return decodeURIComponent(hash.slice('#incident/'.length)); } catch { return ''; }
+}
+
+function IncidentCard({alert, now}: {alert: HeaderAlert; now: number}) {
+ const {item, kind, reason} = alert;
+ const sla = displaySlaKind(item, now);
+ const team = item.assignedGroupName.trim();
+ const initials = team.replace(/^КЦ\s+/i, '').split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase();
+ const description = item.shortDescription?.trim() || item.description.trim();
+ return <li>
+  <a className={`mobile-queue-card attention-${kind}`} href={`#incident/${encodeURIComponent(item.sysId)}`}>
+   <span className="mobile-queue-head">
+    <span className="mobile-queue-id">{item.id}</span>
+    <span className={`mobile-queue-priority priority-${item.priorityId}`}>{[1, 2, 3, 4].includes(item.priorityId) ? 'P' + (5 - item.priorityId) : '—'}</span>
+    <Icon name="right" size={16}/>
+   </span>
+   <strong className="mobile-queue-title">{item.header}</strong>
+   {description && <span className="mobile-queue-description">{description}</span>}
+   <span className="mobile-queue-reason"><Icon name={alertIcon[kind]} size={15}/>{reason}</span>
+   <span className="mobile-queue-metrics">
+    <span><small>Статус</small><strong className="mobile-queue-state">{STATES[stateOf(item)]}</strong></span>
+    <span><small>SLA · {deadlineLabel[sla]}</small><strong className={`mobile-queue-timer sla-${sla}`}>{countdown(item, now)}</strong></span>
+   </span>
+   <span className="mobile-queue-team">
+    <span className="mobile-queue-avatar" aria-hidden="true">{team ? initials : <Icon name="people" size={17}/>}</span>
+    <span><small>Команда</small><strong>{team || 'Не назначена'}</strong></span>
+   </span>
+  </a>
+ </li>;
+}
+
+export function IncidentAlerts({snapshot, now, loading, error, refresh}: Props) {
+ const [hash, setHash] = useState(() => location.hash);
+ useEffect(() => {
+  const change = () => {
+   setHash(location.hash);
+   window.scrollTo({top: 0});
+  };
+  window.addEventListener('hashchange', change);
+  return () => window.removeEventListener('hashchange', change);
+ }, []);
+
+ const selectedId = incidentId(hash);
+ const selected = snapshot?.items.find(item => item.sysId === selectedId);
+ const back = () => { location.hash = 'alerts'; };
+ const connection = error && <div className="connection" role="status">
+  <Icon name="signal"/>
+  <span><strong>Не удалось обновить инциденты</strong><small>{error}</small></span>
+  <button onClick={refresh} disabled={loading}>{loading ? <Spinner/> : 'Повторить'}</button>
+ </div>;
+
+ if (selectedId) return <>
+  {connection}
+  {selected ? <IncidentDetail key={selected.sysId} item={selected} now={now} onBack={back}/> :
+   <>
+    <button className="back" onClick={back}><Icon name="left" size={18}/>Назад к важному</button>
+    <section className="surface empty-state" role="status">
+     <Icon name="inbox" size={34}/>
+     <h2>{loading || (!snapshot && !error) ? 'Загружаем инцидент…' : 'Инцидент недоступен'}</h2>
+     {(!loading && (snapshot || error)) && <button className="button outline" onClick={refresh}>Повторить</button>}
+    </section>
+   </>}
+ </>;
+
+ const alerts = snapshot ? currentMobileAlerts(snapshot, now) : [];
+ return <>
+  <section className={`summary mobile-alert-summary${alerts.length ? ' needs-attention' : ''}`}>
+   <div className="key-pattern" aria-hidden="true"><i>Ctrl</i><i>МТС</i><i>{'{ }'}</i><i>+</i></div>
+   <span className="eyebrow">МТС · ЦЕНТР КООРДИНАЦИИ</span>
+   <div className="summary-heading">
+    <div>
+     <h1>{!snapshot ? 'Важные инциденты' : alerts.length ? 'Нужна ваша реакция' : 'Всё под контролем'}</h1>
+     {snapshot && <p>{alerts.length ? `${alerts.length} ${alertCountGrammar.select(alerts.length) === 'one' ? 'требует' : 'требуют'} внимания` : 'Нет срочных задач'}</p>}
+    </div>
+    <span className="summary-symbol"><Icon name={alerts.length ? 'alert' : snapshot ? 'circleCheck' : 'bell'} size={32}/></span>
+   </div>
+  </section>
+  {connection}
+  <section aria-labelledby="mobile-alert-list-title">
+   <h2 className="mobile-alert-list-title" id="mobile-alert-list-title">Требуют внимания</h2>
+   {!snapshot && !error ? <div className="loading-state" role="status"><Spinner/><span>Загружаем инциденты…</span></div> :
+    !snapshot ? <div className="surface empty-state"><Icon name="signal" size={35}/><h2>Пока нет загруженных данных</h2></div> :
+    !alerts.length ? <div className="surface empty-state"><Icon name="circleCheck" size={35}/><p>Список важных инцидентов пуст.</p></div> :
+    <ul className="mobile-queue" aria-label="Важные инциденты">{alerts.map(alert => <IncidentCard key={alert.item.sysId} alert={alert} now={now}/>)}</ul>}
+  </section>
  </>;
 }

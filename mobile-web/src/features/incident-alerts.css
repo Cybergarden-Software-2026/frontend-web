@@ -1,0 +1,38 @@
+.mobile-alert-summary { padding: clamp(19px, 5vw, 32px); }
+.mobile-alert-summary .summary-heading { align-items: center; }
+.mobile-alert-summary .summary-heading > div { min-width: 0; }
+.mobile-alert-summary .summary-symbol { align-self: center; }
+.mobile-alert-list-title { font-size: 23px; line-height: 1.2; margin: 2px 0 13px; }
+.mobile-queue { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.mobile-queue-card {
+ display: grid; gap: 9px; background: #fff; border: 1px solid var(--line);
+ border-radius: 19px; padding: 15px; box-shadow: 0 3px 14px #3d23540a;
+}
+.mobile-queue-card:hover { border-color: #c7b2e2; }
+.mobile-queue-head { display: flex; align-items: center; gap: 9px; color: var(--purple); }
+.mobile-queue-id { margin-right: auto; font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+.mobile-queue-priority { border-radius: 7px; padding: 4px 7px; background: #eee6fa; font-weight: 700; font-size: 12px; }
+.mobile-queue-priority.priority-4 { background: #fbe8ee; color: #a61c43; }
+.mobile-queue-priority.priority-3 { background: #fff0d6; color: #79501b; }
+.mobile-queue-priority.priority-1 { background: #e4f1e9; color: #206650; }
+.mobile-queue-title { font-size: 17px; line-height: 1.28; overflow-wrap: anywhere; }
+.mobile-queue-description { font-size: 13px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.mobile-queue-reason {
+ display: inline-flex; width: fit-content; align-items: center; gap: 5px;
+ border-radius: 7px; padding: 4px 7px; font-size: 11px; font-weight: 700;
+ background: #fcf0da; color: #79501b;
+}
+.attention-critical .mobile-queue-reason { background: #fbe8ee; color: #a61c43; }
+.mobile-queue-metrics { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; border-block: 1px solid #efe8f5; padding: 9px 0; }
+.mobile-queue-card small { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+.mobile-queue-state { color: var(--purple); font-size: 13px; overflow-wrap: anywhere; }
+.mobile-queue-timer { font-size: 16px; color: #34546f; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mobile-queue-timer.sla-late { color: #a61c43; }
+.mobile-queue-timer.sla-soon { color: #79501b; }
+.mobile-queue-timer.sla-closed, .mobile-queue-timer.sla-restored { color: #206650; }
+.mobile-queue-team { display: flex; align-items: center; gap: 9px; font-size: 13px; overflow-wrap: anywhere; }
+.mobile-queue-avatar {
+ width: 33px; height: 33px; flex: none; display: grid; place-items: center;
+ background: #eee6fa; color: var(--purple); border-radius: 9px; font-weight: 700;
+}
+@media (min-width: 680px) { .mobile-queue { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mobile-queue-card { height: 100%; } }

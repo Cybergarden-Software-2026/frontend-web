@@ -1,39 +1,174 @@
-import {useMobileIncidents} from '../data/useMobileIncidents.ts';
-import {IncidentAlerts} from './IncidentAlerts.tsx';
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {Icon} from '../components/Icon.tsx';
-import {Brand,Spinner,message} from '../components/ui.tsx';
-import {api,ApiError,type Notice} from '../data/api.ts';
+import {Brand, Spinner, message} from '../components/ui.tsx';
+import {api, ApiError} from '../data/api.ts';
+import {useMobileIncidents} from '../data/useMobileIncidents.ts';
 import type {MobileSession} from '../data/vault.ts';
-import {readCache,writeCache} from '../data/cache.ts';
-import {mergeNotices} from '../domain/notices.ts';
-function date(value:string){const n=Date.parse(value);return Number.isFinite(n)?new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(n):'Дата не указана'}
-function NoticeCard({notice,onOpen}:{notice:Notice;onOpen:()=>void}){const critical=notice.type==='critical.raised';return <button className={'notice-card '+(critical?'critical ':'')+(!notice.isRead?'unread':'')} onClick={onOpen}><span className="notice-icon"><Icon name={critical?'alert':'bell'} size={21}/></span><span className="notice-copy"><span className="notice-meta"><b>{critical?'Критический инцидент':'Событие'}</b><time dateTime={notice.createdAt}>{date(notice.createdAt)}</time></span><strong>{notice.title}</strong><span className="notice-body">{notice.body}</span><span className="notice-read">{notice.isRead?'Прочитано':'Новое уведомление'}</span></span><Icon name="right" size={18}/></button>}
-export function Workspace({session,onExit,onExpired}:{session:MobileSession;onExit:()=>Promise<void>;onExpired:()=>void}){
- const current=useMobileIncidents(session.user.login,onExpired);
- const [page,setPage]=useState(location.hash==='#settings'?'settings':'alerts'),[notices,setNotices]=useState<Notice[]>(()=>readCache(session.user.login));
- const [loading,setLoading]=useState(false),[error,setError]=useState(''),[offline,setOffline]=useState(false),[cursor,setCursor]=useState<string|null>(null),[unread,setUnread]=useState(0),[selected,setSelected]=useState<Notice|null>(null),[filter,setFilter]=useState('all');
- const [pushBusy,setPushBusy]=useState(false),[pushStatus,setPushStatus]=useState(''),[pushEnabled,setPushEnabled]=useState(false),[exiting,setExiting]=useState(false);
- const alive=useRef(true),pending=useRef(false),generation=useRef(0),returnTo=useRef('#alerts');
- const handleError=useCallback((e:unknown)=>{if(e instanceof ApiError&&e.status===401){onExpired();return}setError(message(e));setOffline(true)},[onExpired]);
- const refresh=useCallback(async()=>{if(pending.current)return;pending.current=true;const g=generation.current;setLoading(true);try{const response=await api.notifications();if(!alive.current||g!==generation.current)return;setNotices(old=>{const rows=mergeNotices(old,response.items);writeCache(session.user.login,rows);return rows});setCursor(response.nextCursor);setUnread(response.unreadCount);setOffline(false);setError('')}catch(e){if(alive.current)handleError(e)}finally{pending.current=false;if(alive.current)setLoading(false)}},[session.user.login,handleError]);
- useEffect(()=>{alive.current=true;void refresh();const timer=setInterval(()=>{if(document.visibilityState==='visible')void refresh()},15000);const visible=()=>{if(document.visibilityState==='visible')void refresh()};window.addEventListener('online',visible);document.addEventListener('visibilitychange',visible);let stop=()=>{};void import('../push.ts').then(p=>p.listenForeground(()=>{void refresh();current.refresh()})).then(fn=>{if(alive.current)stop=fn;else fn()}).catch(()=>{});return()=>{alive.current=false;clearInterval(timer);window.removeEventListener('online',visible);document.removeEventListener('visibilitychange',visible);stop()};},[refresh]);
- useEffect(()=>{const route=()=>{const hash=location.hash;setPage(hash==='#settings'?'settings':hash==='#journal'||hash.startsWith('#notice/')?'journal':'alerts');if(!hash.startsWith('#notice/'))setSelected(null);else{let id='';try{id=decodeURIComponent(hash.slice(8))}catch{return}const row=notices.find(n=>String(n.id)===id);if(row)setSelected(row)}};window.addEventListener('hashchange',route);route();return()=>window.removeEventListener('hashchange',route)},[notices]);
- async function more(){if(!cursor||pending.current)return;pending.current=true;setLoading(true);try{const response=await api.notifications(cursor);if(!alive.current)return;setNotices(old=>{const rows=mergeNotices(old,response.items);writeCache(session.user.login,rows);return rows});setCursor(response.nextCursor);setUnread(response.unreadCount);setError('')}catch(e){handleError(e)}finally{pending.current=false;if(alive.current)setLoading(false)}}
- async function open(n:Notice){returnTo.current=page==='journal'?'#journal':'#alerts';setSelected(n);location.hash='notice/'+encodeURIComponent(String(n.id));if(!n.isRead)try{await api.read(n.id);if(!alive.current)return;setNotices(old=>{const next=old.map(row=>String(row.id)===String(n.id)?{...row,isRead:true}:row);writeCache(session.user.login,next);return next});setSelected(v=>v?{...v,isRead:true}:v);setUnread(v=>Math.max(0,v-1))}catch(e){handleError(e)}}
- async function push(){setPushBusy(true);setPushStatus('');try{if(!('Notification' in window))throw Error('На iPhone добавьте приложение на экран «Домой» и откройте его оттуда.');const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('Разрешите уведомления в настройках браузера.');const p=await import('../push.ts');const value=await p.enablePush();await api.registerPush(value.token);setPushEnabled(true);try{localStorage.setItem('underctrl-mobile-push-owner',session.user.login)}catch{}setPushStatus('Push-уведомления о критических сбоях подключены.')}catch(e){if(e instanceof ApiError&&e.status===401)onExpired();setPushStatus(message(e))}finally{setPushBusy(false)}}
- async function exit(){if(exiting)return;setExiting(true);setError('');try{await onExit()}catch(e){handleError(e);setExiting(false)}}
- useEffect(()=>{let stopped=false;async function renew(){try{if(!('Notification' in window)||Notification.permission!=='granted'||localStorage.getItem('underctrl-mobile-push-owner')!==session.user.login)return;const p=await import('../push.ts');const value=await p.enablePush();if(stopped)return;await api.registerPush(value.token);if(!stopped)setPushEnabled(true)}catch(e){if(!stopped&&e instanceof ApiError&&e.status===401)onExpired()}}void renew();const timer=setInterval(()=>void renew(),3600000);return()=>{stopped=true;clearInterval(timer)}},[session.user.login,onExpired]);
- const rows=notices.filter(n=>filter!=='unread'||!n.isRead);
- return <div className="workspace"><header className="app-header"><Brand/><a className="avatar" href="#settings" aria-label="Настройки аккаунта">{session.user.displayName.split(/\s+/).map(w=>w[0]).slice(0,2).join('')}</a></header>
- <main className="main-content">
- {error&&page!=='alerts'&&<div className="connection" role="status"><Icon name="signal"/><span><strong>{offline?'Нет соединения с сервером':'Не удалось обновить'}</strong><small>{error} {notices.length>0?'Последние данные могли устареть.':''}</small></span><button onClick={()=>void refresh()} disabled={loading}>{loading?<Spinner/>:'Повторить'}</button></div>}
- {selected?<><button className="back" onClick={()=>{setSelected(null);location.hash=returnTo.current}}><Icon name="left" size={18}/>Назад к уведомлениям</button><article className="notice-detail surface"><span className="detail-icon"><Icon name="alert" size={30}/></span><span className="eyebrow">{selected.type==='critical.raised'?'КРИТИЧЕСКИЙ ИНЦИДЕНТ':'СОБЫТИЕ'}</span><h1>{selected.title}</h1><p>{selected.body}</p><dl><div><dt>Получено</dt><dd>{date(selected.createdAt)}</dd></div><div><dt>Статус уведомления</dt><dd>{selected.isRead?'Прочитано':'Новое'}</dd></div></dl><p className="muted">Это запись журнала. Текущий статус инцидента и срок решения появятся после подключения мобильного маршрута инцидентов.</p></article></>:
- page==='settings'?<><div className="page-heading"><span className="eyebrow">ВАШЕ РАБОЧЕЕ ПРОСТРАНСТВО</span><h1>Настройки</h1></div><section className="surface profile-card"><span className="profile-avatar">{session.user.displayName.slice(0,1)}</span><div><h2>{session.user.displayName}</h2><p>{session.user.login} · Координатор</p></div></section><section className="surface settings-card"><span className="setting-icon"><Icon name="bell" size={26}/></span><h2>Важное — даже в фоне</h2><p>Получайте push-уведомления о новых критических сбоях. Остальные события остаются в журнале.</p><button className="button primary" disabled={pushBusy} onClick={()=>void push()}>{pushBusy?<Spinner/>:<Icon name={pushEnabled?'check':'bell'}/ >}{pushBusy?'Подключаем…':pushEnabled?'Обновить подключение':'Подключить уведомления'}</button>{pushStatus&&<p role="status" className="push-status">{pushStatus}</p>}<div className="install-note"><Icon name="phone"/><span>На iPhone: Safari → «Поделиться» → «На экран Домой». Затем откройте приложение с новой иконки.</span></div></section><section className="surface settings-card"><h2>Устройство подключено</h2><p>Выход отзовёт мобильную сессию и отключит отправку push на этот телефон.</p><button className="button outline" disabled={exiting} onClick={()=>void exit()}>{exiting?<Spinner/>:<Icon name="logout"/>}{exiting?'Выходим…':'Выйти из аккаунта'}</button></section></>:page==='alerts'?<IncidentAlerts snapshot={current.snapshot} now={current.now} loading={current.loading} error={current.error} refresh={current.refresh}/>:<><section className="summary"><div className="key-pattern" aria-hidden="true"><i>Ctrl</i><i>МТС</i><i>{'{ }'}</i><i>+</i></div><span className="eyebrow">МТС · НА СВЯЗИ С КООРДИНАТОРОМ</span><div className="summary-heading"><div><h1>Журнал событий</h1><p>События вашего рабочего пространства</p></div><span className="summary-symbol"><Icon name="pulse" size={32}/></span></div><div className="summary-footer"><span><i className={offline?'status-dot offline':'status-dot'}/>{offline?'Последние сохранённые данные':'Обновляем автоматически'}</span><button className="icon-button" onClick={()=>void refresh()} disabled={loading} aria-label="Обновить уведомления">{loading?<Spinner/>:<Icon name="refresh" size={18}/>}</button></div></section>
- <div className="list-heading"><div><h2>Все события <span>{notices.length}</span></h2><p>{`Непрочитанных: ${unread}`}</p></div><div className="segmented"><button className={filter==='all'?'selected':''} onClick={()=>setFilter('all')}>Все</button><button className={filter==='unread'?'selected':''} onClick={()=>setFilter('unread')}>Новые</button></div></div>
+import {IncidentAlerts} from './IncidentAlerts.tsx';
+import './mobile-workspace.css';
 
- {loading&&!notices.length?<div className="loading-state"><Spinner/><span>Загружаем уведомления…</span></div>:rows.length?<div className="notice-list">{rows.map(n=><NoticeCard key={String(n.id)} notice={n} onOpen={()=>void open(n)}/>)}</div>:<section className="empty-state surface"><span><Icon name={error?'signal':'circleCheck'} size={36}/></span><h2>{error?'Пока нет загруженных данных':filter==='unread'?'Всё прочитано':'Новых событий нет'}</h2><p>{error?'Подключитесь к сети и нажмите «Повторить».':'Новые уведомления появятся здесь автоматически.'}</p></section>}
- {cursor&&<button className="button outline load-more" disabled={loading} onClick={()=>void more()}>{loading?<Spinner/>:null}Загрузить ещё события</button>}
- </>}
- </main><nav className="bottom-nav" aria-label="Навигация"><a href="#alerts" className={page==='alerts'?'selected':''}><Icon name="bell"/><span>Важное</span></a><a href="#journal" className={page==='journal'?'selected':''}><Icon name="pulse"/><span>Журнал</span>{unread>0&&<b>{unread>99?'99+':unread}</b>}</a><a href="#settings" className={page==='settings'?'selected':''}><Icon name="settings"/><span>Настройки</span></a></nav></div>;
+const pushOwnerKey = 'underctrl-mobile-push-owner';
+
+function remembersPush(owner: string) {
+ try { return localStorage.getItem(pushOwnerKey) === owner; }
+ catch { return false; }
+}
+
+function keepIncidentsRoute() {
+ const {hash} = location;
+ if (hash === '#alerts' || hash.startsWith('#incident/')) return;
+ history.replaceState(history.state, '', '#alerts');
+}
+
+export function Workspace({session, onExit, onExpired}: {
+ session: MobileSession;
+ onExit: () => Promise<void>;
+ onExpired: () => void;
+}) {
+ const owner = session.user.login;
+ const current = useMobileIncidents(owner, onExpired);
+ const {refresh} = current;
+ const [pushBusy, setPushBusy] = useState(false);
+ const [pushEnabled, setPushEnabled] = useState(false);
+ const [pushStatus, setPushStatus] = useState('');
+ const [exitError, setExitError] = useState('');
+ const [exiting, setExiting] = useState(false);
+ const alive = useRef(true);
+ const connectingPush = useRef(false);
+ const leaving = useRef(false);
+
+ useEffect(() => {
+  keepIncidentsRoute();
+  window.addEventListener('hashchange', keepIncidentsRoute);
+  return () => window.removeEventListener('hashchange', keepIncidentsRoute);
+ }, []);
+
+ useEffect(() => {
+  alive.current = true;
+  let unsubscribe = () => {};
+  void import('../push.ts').then(push => push.listenForeground(refresh)).then(stop => {
+   if (alive.current) unsubscribe = stop;
+   else stop();
+  }).catch(() => {});
+  return () => { alive.current = false; unsubscribe(); };
+ }, [refresh]);
+
+ const connectPush = useCallback(async (interactive: boolean) => {
+  if (connectingPush.current || leaving.current) return;
+  connectingPush.current = true;
+  setPushBusy(true);
+  if (interactive) setPushStatus('');
+  try {
+   if (typeof Notification === 'undefined') {
+    throw new Error('Откройте приложение с домашнего экрана, чтобы подключить уведомления.');
+   }
+   // iOS requires a direct user gesture. Request permission before loading Firebase.
+   const permission = interactive && Notification.permission === 'default'
+    ? await Notification.requestPermission()
+    : Notification.permission;
+   if (permission !== 'granted') {
+    setPushEnabled(false);
+    throw new Error('Разрешите уведомления для приложения в системных настройках.');
+   }
+   const push = await import('../push.ts');
+   const {token} = await push.enablePush();
+   if (!alive.current || leaving.current) return;
+   await api.registerPush(token);
+   if (!alive.current || leaving.current) return;
+   setPushEnabled(true);
+   try { localStorage.setItem(pushOwnerKey, owner); } catch {}
+   if (interactive) setPushStatus('Уведомления о критических сбоях подключены.');
+  } catch (error) {
+   if (!alive.current || leaving.current) return;
+   if (error instanceof ApiError && error.status === 401) {
+    onExpired();
+    return;
+   }
+   if (error instanceof ApiError || interactive) setPushEnabled(false);
+   if (interactive) {
+    setPushStatus(error instanceof ApiError && error.code === 'MOBILE_PUSH_DISABLED'
+     ? 'Отправка уведомлений пока отключена на сервере.'
+     : message(error));
+   }
+  } finally {
+   connectingPush.current = false;
+   if (alive.current) setPushBusy(false);
+  }
+ }, [owner, onExpired]);
+
+ useEffect(() => {
+  function renew() {
+   if (document.visibilityState !== 'visible') return;
+   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    setPushEnabled(false);
+    return;
+   }
+   if (remembersPush(owner)) void connectPush(false);
+  }
+  renew();
+  const timer = setInterval(renew, 3600000);
+  document.addEventListener('visibilitychange', renew);
+  window.addEventListener('online', renew);
+  return () => {
+   clearInterval(timer);
+   document.removeEventListener('visibilitychange', renew);
+   window.removeEventListener('online', renew);
+  };
+ }, [owner, connectPush]);
+
+ function openNotifications() {
+  if (pushEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+   setPushStatus(status => status ? '' : 'Уведомления о критических сбоях подключены.');
+   return;
+  }
+  void connectPush(true);
+ }
+
+ async function exit() {
+  if (leaving.current) return;
+  leaving.current = true;
+  setExiting(true);
+  setExitError('');
+  setPushStatus('');
+  try {
+   await onExit();
+  } catch (error) {
+   if (!alive.current) return;
+   if (error instanceof ApiError && error.status === 401) {
+    onExpired();
+    return;
+   }
+   leaving.current = false;
+   setExiting(false);
+   setExitError(message(error));
+  }
+ }
+
+ return <div className="workspace incident-workspace">
+  <header className="app-header">
+   <Brand/>
+   <div className="workspace-actions">
+    <button type="button" className="workspace-action" disabled={pushBusy || exiting}
+     aria-label={pushEnabled ? 'Уведомления подключены' : 'Подключить уведомления'}
+     aria-busy={pushBusy} onClick={openNotifications}>
+     {pushBusy ? <Spinner/> : <Icon name="bell" size={22}/>}
+     {pushEnabled && <span className="workspace-push-check"><Icon name="check" size={11}/></span>}
+    </button>
+    <button type="button" className="workspace-action workspace-exit" aria-label="Выйти из аккаунта"
+     disabled={exiting} onClick={() => void exit()}>
+     {exiting ? <Spinner/> : <Icon name="logout" size={22}/>}
+    </button>
+   </div>
+  </header>
+  <main className="main-content">
+   {(pushStatus || exitError) && <div className="workspace-status" role={exitError ? 'alert' : 'status'}>
+    <Icon name={exitError ? 'alert' : pushEnabled ? 'circleCheck' : 'bell'} size={18}/>
+    <span>{exitError || pushStatus}</span>
+    <button type="button" aria-label="Закрыть сообщение" onClick={() => { setPushStatus(''); setExitError(''); }}>
+     <Icon name="close" size={18}/>
+    </button>
+   </div>}
+   <IncidentAlerts snapshot={current.snapshot} now={current.now} loading={current.loading} error={current.error} refresh={refresh}/>
+  </main>
+ </div>;
 }

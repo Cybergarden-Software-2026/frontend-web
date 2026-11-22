@@ -3,7 +3,7 @@ import {api,ApiError,API_BASE} from './api.ts';
 import {parseMobileSnapshot,type MobileSnapshot} from '../domain/mobileIncidents.ts';
 interface Saved {owner:string;snapshot:MobileSnapshot;offset:number;syncedAt:number}
 const KEY='underctrl-mobile-incidents-v1';
-function cached(owner:string):Saved|null{try{const value=JSON.parse(localStorage.getItem(KEY)||'null');if(value?.owner!==API_BASE+'|'+owner)return null;parseMobileSnapshot(value.snapshot);return value}catch{return null}}
+function cached(owner:string):Saved|null{try{const value=JSON.parse(localStorage.getItem(KEY)||'null');if(value?.owner!==API_BASE+'|'+owner)return null;return {...value,snapshot:parseMobileSnapshot(value.snapshot)}}catch{return null}}
 export function clearIncidentCache(){try{localStorage.removeItem(KEY)}catch{}}
 export function useMobileIncidents(owner:string,onExpired:()=>void){
  const [saved,setSaved]=useState(()=>cached(owner)),[now,setNow]=useState(Date.now()),[loading,setLoading]=useState(false),[error,setError]=useState('');
