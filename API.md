@@ -10,6 +10,7 @@ Status reflects the committed implementation in the owning repository. Productio
 |---|---|---|
 | `GET/POST/DELETE /api/v1/auth/coordinator/session` and protected dashboard routes | `backend` and `frontend-web` | Implemented (enabled by configuration) |
 | Personal coordinator accounts with password and individual key, plus assignment attribution | `backend` and `frontend-web` | Implemented (enabled by `COORDINATOR_ACCOUNTS_ENABLED`) |
+| Personal QR pairing, device token rotation and Firebase delivery for `critical.raised` | `backend` and `frontend-web` | Implemented (enabled per deployment) |
 | `GET /api/v1/snapshot` and `GET /api/v1/dashboard` | `backend` | Implemented |
 | `GET /api/v1/incidents` with page and cursor pagination, and `GET /api/v1/incidents/{key}?view=web` | `backend` | Implemented |
 | `GET /api/v1/teams` and rules-based `GET /api/v1/incidents/{key}/analysis` | `backend` | Implemented |
@@ -66,6 +67,21 @@ Accounts mode requires a session even when no accounts have been created. It acc
 The API issues a host-only `__Host-underctrl-coordinator` cookie with `Secure`, `HttpOnly`, `SameSite=Strict`, and `Path=/`. The default session expires after 12 hours on the server and uses a browser session cookie. Selecting **Remember this device** issues a cookie and session valid for seven days. The browser sends the cookie on normal same-origin requests, including SSE. For cross-origin requests within the same site, add the HTTPS frontend origin to `CORS_ORIGINS` and send credentials on both `fetch` and `EventSource`.
 
 The API returns `401` for protected routes without a valid session and `403` for writes from a disallowed browser origin. Protection covers dashboard data, the queue, incident details and history, the team directory, analysis, notifications, statistics, SSE, team assignments and group edits. Authenticated data and session responses specify `Cache-Control: no-store`. The server rechecks access before sending each SSE update or heartbeat, so disabling an account also stops access through its open streams. Health and API documentation are available without a session.
+
+### Mobile critical alerts
+
+The dashboard button «Подключить телефон» above the signed-in profile creates a five-minute, single-use QR code. The QR contains the exact `code` returned by the server. An Android client or web app registers its own Firebase target using this code. The device receives subsequent `critical.raised` events for this dashboard.
+
+| Method and path under `/api/v1` | Authentication | Response |
+|---|---|---|
+| `POST /mobile/pairings` | Personal coordinator cookie | `201 {code, expiresAt}` |
+| `POST /mobile/devices` | One-time code in JSON with `platform`, `fcmToken`, optional `fcmTargetType` | `201 {deviceId, deviceToken}` |
+| `PUT /mobile/devices/current/token` | Device Bearer | `204` after updating `fcmToken` and `fcmTargetType` |
+| `DELETE /mobile/devices/current` | Device Bearer | `204` after unlinking |
+| `GET /mobile/devices` | Personal coordinator cookie | `200 {items:[{deviceId,platform,createdAt,pushEnabled}]}` |
+| `DELETE /mobile/devices/{deviceId}` | Owning coordinator cookie | `204` after revocation |
+
+Use `platform: "android"` or `"web"`. Use `fcmTargetType: "fid"` for an FCM-registered Firebase installation ID and `"token"` (default) for a registration token. Android renders the data message locally and deduplicates by the string `notificationId`. Integration examples, error recovery and the full notification payload are in the [mobile client guide](https://github.com/Cybergarden-Software-2026/backend/blob/main/docs/mobile.md).
 
 ## 1. Get a snapshot and find incident identifiers
 
