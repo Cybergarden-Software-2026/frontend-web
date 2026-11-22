@@ -7,6 +7,29 @@ import {startApi} from '../tools/demo-api/index.mjs';
 const seed=JSON.parse(readFileSync(new URL('../data/seed.json',import.meta.url),'utf8'));
 async function fixture(fn){const dir=mkdtempSync(join(tmpdir(),'underctrl-api-'));const sourcePath=join(dir,'incidents.json');writeFileSync(sourcePath,JSON.stringify(seed));const api=await startApi({port:0,sourcePath,dbPath:join(dir,'test.sqlite'),seedPath:sourcePath});try{await fn(api,sourcePath);}finally{await api.close();rmSync(dir,{recursive:true,force:true});}}
 test('versioned API exposes the actual snapshot and analysis',async()=>fixture(async(api)=>{const base=`http://127.0.0.1:${api.port}/api/v1`;const response=await fetch(base+'/snapshot');assert.equal(response.status,200);const snapshot=await response.json();assert.equal(snapshot.items.length,44);const analysis=await (await fetch(`${base}/incidents/${seed[0].sysId}/analysis`)).json();assert.equal(analysis.sysId,seed[0].sysId);assert.equal(analysis.provider,'rules');}));
+test('demo analysis uses the current incident history and reports its current status', async () => fixture(async api => {
+ const item = seed[0];
+ api.store.patch(item.sysId, { shortDescription: 'Очередь чеков остановилась', stateEnum: 'Research', stateId: 20, solution: 'Перезапустили очередь' });
+ api.store.patch(item.sysId, { stateEnum: 'WorkInProgress', stateId: 2 });
+ api.store.patch(seed[1].sysId, { assignedGroupName: 'Посторонняя команда' });
+ const response = await fetch(`http://127.0.0.1:${api.port}/api/v1/incidents/${item.sysId}/analysis`);
+ assert.equal(response.status, 200);
+ const analysis = await response.json();
+ assert.equal(analysis.provider, 'rules');
+ assert.match(analysis.summary, /Очередь чеков остановилась/);
+ assert.match(analysis.summary, /Перезапустили очередь/);
+ assert.match(analysis.summary, /снова в работе/);
+ assert.match(analysis.summary, /результат пока не подтверждён/);
+ assert.doesNotMatch(analysis.summary, /Посторонняя команда/);
+ api.store.patch(item.sysId, { solution: '' });
+ // Other incidents can displace this history from the 200-entry dashboard feed.
+ const others = Array.from({length:201}, (_, i) => ({...seed[1], sysId:`extra-${i}`, id:`INC-EXTRA-${i}`}));
+ const crowded = api.store.write([...api.store.snapshot().items, ...others]);
+ assert.ok(crowded.events.every(event => event.sysId !== item.sysId));
+ const cleared = await (await fetch(`http://127.0.0.1:${api.port}/api/v1/incidents/${item.sysId}/analysis`)).json();
+ assert.match(cleared.summary, /Ранее .*Перезапустили очередь/);
+ assert.match(cleared.summary, /снова в работе/);
+}));
 test('changing only deadline creates one event and updates SQLite',async()=>fixture(async(api,path)=>{const rows=structuredClone(seed);rows[0].deadline='2027-01-01T00:00:00Z';writeFileSync(path,JSON.stringify(rows));api.store.readSource();const snapshot=api.store.snapshot();assert.equal(snapshot.revision,2);assert.equal(snapshot.events.length,1);assert.deepEqual(snapshot.events[0].fields,['deadline']);assert.ok(snapshot.events[0].types.includes('deadline'));api.store.readSource();assert.equal(api.store.snapshot().events.length,1);}));
 test('partial invalid JSON retains last good data and recovers',async()=>fixture(async(api,path)=>{writeFileSync(path,'[{');api.store.readSource();assert.equal(api.store.snapshot().items.length,44);assert.equal(api.store.snapshot().revision,1);assert.ok(api.store.snapshot().source.error);writeFileSync(path,JSON.stringify(seed));api.store.readSource();assert.equal(api.store.snapshot().source.error,null);assert.equal(api.store.snapshot().revision,1);}));
 test('duplicate import is rejected and original source is preserved',async()=>fixture(async(api,path)=>{const response=await fetch(`http://127.0.0.1:${api.port}/api/v1/incidents`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify([seed[0],seed[0]])});assert.equal(response.status,400);assert.equal(JSON.parse(readFileSync(path,'utf8')).length,44);}));

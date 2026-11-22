@@ -98,9 +98,16 @@ export class IncidentStore {
   return this.write(items);
  }
  analysis(sysId) {
-  const snapshot=this.snapshot(),item=snapshot.items.find(i=>i.sysId===sysId);
+  const row=this.row();
+  if(!row)return null;
+  const items=JSON.parse(row.payload),item=items.find(i=>i.sysId===sysId);
   if(!item)return null;
-  return analyze(item,snapshot.items,snapshot.revision);
+  const history=this.db.prepare(`SELECT id,payload FROM events
+   WHERE json_extract(payload, '$.sysId') = ?
+     AND EXISTS (SELECT 1 FROM json_each(payload, '$.fields')
+                 WHERE value IN ('state','stateEnum','stateId','assignedGroupName','solution'))
+   ORDER BY id DESC LIMIT 5`).all(sysId).map(event=>({...JSON.parse(event.payload),eventId:Number(event.id)}));
+  return analyze(item,items,row.revision,undefined,history);
  }
  close() {this.db.close();}
 }

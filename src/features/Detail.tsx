@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { Incident, Snapshot, Analysis } from '../domain/incidents';
+import type { Analysis, ChangeEvent, Incident, Snapshot } from '../domain/incidents';
 import { EVENT_LABELS, describeEvent } from '../domain/incidents';
 import { canAssign } from '../domain/operations';
-import { Status, Team, Dialog, Empty, dateTime } from '../components/ui';
+import { Status, Dialog, Empty, dateTime } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { ApiError, api } from '../data/api';
-import { detailDate, detailSla } from './detailPresentation';
+import { watchIncidentBrief } from '../data/incidentBriefAnalysis';
+import { detailBrief, detailDate, detailSla } from './detailPresentation';
 
 
 export function IncidentDetailPage({ incidentKey, snapshot, online, now, onBack, backLabel, onAssign }: {
@@ -49,19 +50,21 @@ export function IncidentDetailPage({ incidentKey, snapshot, online, now, onBack,
   </section>;
  }
  const assign = online && cached && response?.isPresent !== false ? () => onAssign(item.sysId) : undefined;
+ const present = response && response.revision >= revision ? response.isPresent : Boolean(cached);
  return <>
   {online && status === 'error' && <p className="detail-inline-error" role="status">Не удалось обновить карточку. Показаны последние данные. <button className="text-button" onClick={() => setAttempt(value => value + 1)}>Повторить</button></p>}
-  <Detail item={item} snapshot={snapshot} revision={Math.max(revision, response?.revision ?? 0)} online={online} now={now} onBack={onBack} backLabel={backLabel} onAssign={assign}/>
+  <Detail item={item} snapshot={snapshot} revision={Math.max(revision, response?.revision ?? 0)} present={present} online={online} now={now} onBack={onBack} backLabel={backLabel} onAssign={assign}/>
  </>;
 }
 
 const HISTORY_PAGE_SIZE = 3;
 
-function IncidentHistory({ item, snapshot, revision, online }: {
+function IncidentHistory({ item, snapshot, revision, online, onLatest }: {
  item: Incident;
  snapshot: Snapshot | null;
  revision: number;
  online: boolean;
+ onLatest: (events: ChangeEvent[]) => void;
 }) {
  const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
  const [index, setIndex] = useState(0);
@@ -82,13 +85,14 @@ function IncidentHistory({ item, snapshot, revision, online }: {
   setStatus('loading');
   api.incidentEvents(item.sysId, cursor, controller.signal).then(value => {
    if (controller.signal.aborted) return;
+   if (cursor === undefined) onLatest(value.items);
    setResult({ cursor, page: value });
    setStatus('ready');
   }).catch(() => {
    if (!controller.signal.aborted) setStatus('error');
   });
   return () => controller.abort();
- }, [online, item.sysId, cursor, headRevision, attempt]);
+ }, [online, item.sysId, cursor, headRevision, attempt, onLatest]);
 
  const server = result?.cursor === cursor ? result?.page : undefined;
  const fallback = !online || (status === 'error' && !server && page === 0);
@@ -124,31 +128,26 @@ function IncidentHistory({ item, snapshot, revision, online }: {
 }
 
 
-function Detail({ item, snapshot, revision, online, now, onBack, backLabel, onAssign }: {
- item: Incident; snapshot: Snapshot | null; revision: number; online: boolean;
+function Detail({ item, snapshot, revision, present, online, now, onBack, backLabel, onAssign }: {
+ item: Incident; snapshot: Snapshot | null; revision: number; present: boolean; online: boolean;
  now: number; onBack: () => void; backLabel: string; onAssign?: () => void;
 }) {
  const [aiOpen, setAiOpen] = useState(false);
- const [analysis, setAnalysis] = useState<Analysis | null>(null), [busy, setBusy] = useState(false);
- const [failure, setFailure] = useState<string | null>(null), [retry, setRetry] = useState(0);
+ const [analysis, setAnalysis] = useState<Analysis | null>(null);
+ const [latestEvents, setLatestEvents] = useState<ChangeEvent[]>([]);
+ const [copyError, setCopyError] = useState(false);
  const [copied, setCopied] = useState(false);
- const currentAnalysis = analysis?.revision === revision ? analysis : null;
  useEffect(() => {
-  if (!aiOpen) return;
-  let alive = true; setBusy(true); setFailure(null); setAnalysis(null);
-  api.analysis(item.sysId).then(value => {
-   if (!alive) return;
-   if (value.revision !== revision) setFailure('Данные изменились. Повторите разбор актуального инцидента.');
-   else setAnalysis(value);
-  }).catch(() => { if (alive) setFailure('Не удалось подготовить разбор. Попробуйте ещё раз.'); })
-   .finally(() => { if (alive) setBusy(false); });
-  return () => { alive = false; };
- }, [aiOpen, item.sysId, revision, retry]);
+  if (!aiOpen || !online || !present) return;
+  setAnalysis(null);
+  return watchIncidentBrief(item.sysId, revision, setAnalysis);
+ }, [aiOpen, item.sysId, revision, online, present]);
  useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 1800); return () => clearTimeout(timer); }, [copied]);
  const sla = detailSla(item, now);
  const priority = ({ 4: 'P1 · Критический', 3: 'P2 · Высокий', 2: 'P3 · Средний', 1: 'P4 · Низкий' } as Record<number, string>)[item.priorityId] || item.priority || 'Приоритет не указан';
  const facts = [['Продукт', item.productName], ['Сервис', item.service], ['Сценарий использования', item.scenarioName],
   ['Тип сервиса', item.serviceType], ['Влияние', item.impact], ['Срочность', item.urgency]];
+ const brief = aiOpen ? detailBrief(item, [...latestEvents, ...(snapshot?.events ?? [])], revision, online && present ? analysis : null) : null;
 
 
  return <article className="incident-detail-page" aria-labelledby="incident-title" data-incident-id={item.sysId}>
@@ -162,22 +161,17 @@ function Detail({ item, snapshot, revision, online, now, onBack, backLabel, onAs
      <h1 id="incident-title" tabIndex={-1}>{item.header || 'Инцидент без заголовка'}</h1>
      <p className={`incident-short-description ${item.shortDescription ? '' : 'detail-missing'}`}>{item.shortDescription || 'Краткое описание пока не добавлено'}</p>
      <div className="incident-summary-meta">
-      <span className="incident-number">{item.id}<button className="icon-button copy-incident" aria-label={copied ? 'Номер скопирован' : 'Копировать номер инцидента'} title={copied ? 'Скопировано' : 'Копировать номер'} onClick={() => { void navigator.clipboard.writeText(item.id).then(() => setCopied(true)).catch(() => setFailure('Не удалось скопировать номер.')); }}><Icon name={copied ? 'check' : 'copy'} size={15}/></button></span>
+      <span className="incident-number">{item.id}<button className="icon-button copy-incident" aria-label={copied ? 'Номер скопирован' : 'Копировать номер инцидента'} title={copied ? 'Скопировано' : 'Копировать номер'} onClick={() => { setCopyError(false); void navigator.clipboard.writeText(item.id).then(() => setCopied(true)).catch(() => setCopyError(true)); }}><Icon name={copied ? 'check' : 'copy'} size={15}/></button></span>
+      {copyError && <small role="status">Не удалось скопировать номер.</small>}
       <span className={`priority source-priority-${item.priorityId}`}>{priority}</span><Status item={item}/>
      </div>
     </header>
-    {aiOpen && <Dialog title="Помощь ИИ" onClose={() => setAiOpen(false)}><section className="incident-assistant detail-card" id="incident-assistant" aria-labelledby="assistant-title">
-     <div className="detail-card-heading">
-      <h2 id="assistant-title"><Icon name="spark" size={18}/>Помощь координатору</h2>
-      {currentAnalysis && <span className="small-tag tone-purple">{currentAnalysis.provider === 'llm' ? 'ИИ-анализ' : 'Анализ по правилам'}</span>}
+    {brief && <Dialog title="Помощь ИИ" onClose={() => setAiOpen(false)}>
+     <div className="incident-assistant detail-card" id="incident-assistant">
+      <p aria-live="polite">{brief.text}</p>
+      <small className="detail-muted">{brief.generated ? 'ИИ-сводка' : !present ? 'По архивной карточке' : !online ? 'По сохранённой карточке' : 'По данным карточки'}</small>
      </div>
-     {busy && <p className="detail-muted" role="status">Собираем факты и похожие случаи…</p>}
-     {failure && <div className="detail-inline-error" role="alert"><p>{failure}</p><button className="text-button" onClick={() => setRetry(value => value + 1)}>Повторить</button></div>}
-     {currentAnalysis && <><p>{currentAnalysis.summary}</p>{currentAnalysis.attention.length > 0 && <ul>{currentAnalysis.attention.map(text => <li key={text}>{text}</li>)}</ul>}
-      <h3>Команды из похожих случаев</h3>{currentAnalysis.candidates.length ? currentAnalysis.candidates.map(candidate => <div className="detail-candidate" key={candidate.team}><Team name={candidate.team}/><p>{candidate.reason}</p><small>Похожие инциденты: {candidate.evidenceIds.join(', ')}</small></div>) : <p className="detail-muted">Недостаточно похожих завершённых случаев для рекомендации.</p>}
-      {currentAnalysis.missing.length > 0 && <details><summary>Каких данных не хватает</summary><ul>{currentAnalysis.missing.map(text => <li key={text}>{text}</li>)}</ul></details>}
-      <small className="detail-muted">Рекомендации требуют проверки координатором.</small></>}
-    </section></Dialog>}
+    </Dialog>}
     <section className="surface detail-card incident-problem" aria-labelledby="problem-title">
      <h2 id="problem-title">Описание проблемы</h2>{item.description ? <p className="preserve-lines problem-description">{item.description}</p> : <DetailEmpty icon="inbox" title="Описание пока не добавлено" text="Здесь появятся симптомы и обстоятельства инцидента."/>}
      <h3>Затронутая система</h3><dl className="incident-system-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className={value ? undefined : 'detail-missing'}>{value || 'Не указано'}</dd></div>)}</dl>
@@ -197,7 +191,7 @@ function Detail({ item, snapshot, revision, online, now, onBack, backLabel, onAs
      <dl className="detail-table"><DetailRow label="Команда" value={item.assignedGroupName} empty="Не назначена"/><DetailRow label="Исполнитель" value={item.assignedEmployee} empty="Не назначен"/><DetailRow label="Логин исполнителя" value={item.assignedEmployeeLogin}/><DetailRow label="Назначение команде" value={detailDate(item.lastAssignmentToTeamDateTime)}/></dl>
      {onAssign && canAssign(item) && <button className="button detail-outline-action detail-assign" onClick={onAssign}><Icon name="userPlus" size={16}/>Назначить / сменить команду</button>}
     </section>
-    <IncidentHistory item={item} snapshot={snapshot} revision={revision} online={online}/>
+    <IncidentHistory item={item} snapshot={snapshot} revision={revision} online={online} onLatest={setLatestEvents}/>
    </aside>
   </div>
  </article>;

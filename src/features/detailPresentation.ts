@@ -1,6 +1,21 @@
-import type { Incident } from '../domain/incidents.ts';
-import { timestamp } from '../domain/incidents.ts';
+import type { Analysis, ChangeEvent, Incident } from '../domain/incidents.ts';
+import { incidentBrief, timestamp } from '../domain/incidents.ts';
 import { displaySlaKind } from '../domain/deadlineDisplay.ts';
+
+export function detailBrief(item: Incident, events: readonly ChangeEvent[], revision: number, analysis: Analysis | null) {
+ if (analysis?.sysId === item.sysId && analysis.revision === revision && typeof analysis.summary === 'string') {
+  const summary = analysis.summary.trim();
+  // Older responses identify an AI-written summary with a prefix when routing used rules.
+  const modelPrefix = 'Разбор ИИ.';
+  const prefixed = summary.startsWith(modelPrefix);
+  const text = prefixed ? summary.slice(modelPrefix.length).trim() : summary;
+  if (text) return { text, generated: prefixed || analysis.provider === 'llm' };
+ }
+ // The detail's first page may contain history older than the global snapshot window.
+ const history = events.filter(event => event.sysId === item.sysId && event.revision <= revision)
+  .sort((a, b) => b.eventId - a.eventId);
+ return { text: incidentBrief(item, history), generated: false };
+}
 
 export function detailDate(value: unknown): string {
  const time = timestamp(value);
