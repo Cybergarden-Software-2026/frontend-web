@@ -13,23 +13,12 @@ export interface MobileIncident extends Partial<Record<typeof optionalIncidentFi
  priorityId: number;
  assignedGroupName: string | null;
  teamPhoneIsTest?: boolean;
- coordinationClaim?: CoordinationClaim | null;
  submitDate: string | null;
  lastAssignmentToTeamDateTime: string | null;
  deadline: string | null;
  headerKind: 'critical' | 'waiting' | 'deadline' | null;
 }
-export interface CoordinationClaim {login:string;displayName:string;claimedAt:string}
 export interface MobileSnapshot {revision:number;serverTime:string;items:MobileIncident[]}
-export function isCoordinationClaim(value:unknown):value is CoordinationClaim {
- if(!value||typeof value!=='object')return false;
- const {login,displayName,claimedAt}=value as Partial<CoordinationClaim>;
- return typeof login==='string'&&Boolean(login.trim())&&typeof displayName==='string'&&Boolean(displayName.trim())
-  &&typeof claimedAt==='string'&&Number.isFinite(Date.parse(claimedAt));
-}
-export function coordinationClaimLabel(claim:CoordinationClaim,owner:string) {
- return claim.login===owner?'В работе у вас':`В работе · ${claim.displayName}`;
-}
 export function parseMobileSnapshot(value:unknown):MobileSnapshot{
  if(!value||typeof value!=='object')throw Error('Некорректный снимок инцидентов');
  const s=value as MobileSnapshot;
@@ -45,12 +34,10 @@ export function parseMobileSnapshot(value:unknown):MobileSnapshot{
   ids.add(item.sysId);
   const invalid = optionalIncidentFields.filter(key => item[key] != null && typeof item[key] !== 'string');
   const invalidPhoneFlag = item.teamPhoneIsTest !== undefined && typeof item.teamPhoneIsTest !== 'boolean';
-  const invalidClaim = item.coordinationClaim != null && !isCoordinationClaim(item.coordinationClaim);
-  if (!invalid.length && !invalidPhoneFlag && !invalidClaim) return item;
+  if (!invalid.length && !invalidPhoneFlag) return item;
   const sanitized = {...item};
   for (const key of invalid) delete sanitized[key];
   if (invalidPhoneFlag) delete sanitized.teamPhoneIsTest;
-  if (invalidClaim) delete sanitized.coordinationClaim;
   return sanitized;
  });
  return {...s, items};

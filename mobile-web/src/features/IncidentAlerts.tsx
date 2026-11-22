@@ -1,9 +1,9 @@
 import {useEffect, useState} from 'react';
 import {Icon} from '../components/Icon.tsx';
 import {Spinner} from '../components/ui.tsx';
-import {coordinationClaimLabel, currentMobileAlerts, type CoordinationClaim, type MobileSnapshot} from '../domain/mobileIncidents.ts';
+import {currentMobileAlerts, type MobileSnapshot} from '../domain/mobileIncidents.ts';
 import {countdown, type HeaderAlert} from '../domain/alerts.ts';
-import {belongs, STATES, stateOf} from '../domain/incidents.ts';
+import {STATES, stateOf} from '../domain/incidents.ts';
 import {displaySlaKind} from '../domain/deadlineDisplay.ts';
 import {IncidentDetail} from './IncidentDetail.tsx';
 import './incident-alerts.css';
@@ -30,7 +30,7 @@ function incidentId(hash: string) {
  try { return decodeURIComponent(hash.slice('#incident/'.length)); } catch { return ''; }
 }
 
-function IncidentCard({alert, now, claim, owner}: {alert: HeaderAlert; now: number; claim?: CoordinationClaim; owner: string}) {
+function IncidentCard({alert, now}: {alert: HeaderAlert; now: number}) {
  const {item, kind, reason} = alert;
  const sla = displaySlaKind(item, now);
  const team = item.assignedGroupName.trim();
@@ -54,7 +54,6 @@ function IncidentCard({alert, now, claim, owner}: {alert: HeaderAlert; now: numb
     <span className="mobile-queue-avatar" aria-hidden="true">{team ? initials : <Icon name="people" size={17}/>}</span>
     <span><small>Команда</small><strong>{team || 'Не назначена'}</strong></span>
    </span>
-   {claim && belongs(item,'coordinators') && <span className="mobile-claim-label">{coordinationClaimLabel(claim,owner)}</span>}
   </a>
  </li>;
 }
@@ -81,7 +80,7 @@ export function IncidentAlerts({snapshot, now, loading, error, refresh, owner, o
 
  if (selectedId) return <>
   {connection}
-  {selected && snapshot ? <IncidentDetail key={selected.sysId} item={selected} revision={snapshot.revision} now={now} onBack={back} owner={owner} refresh={refresh} onExpired={onExpired}/> :
+  {selected ? <IncidentDetail key={selected.sysId} item={selected} now={now} onBack={back} owner={owner} refresh={refresh} onExpired={onExpired}/> :
    <>
     <button className="back" onClick={back}><Icon name="left" size={18}/>Назад к важному</button>
     <section className="surface empty-state" role="status">
@@ -93,8 +92,6 @@ export function IncidentAlerts({snapshot, now, loading, error, refresh, owner, o
  </>;
 
  const alerts = snapshot ? currentMobileAlerts(snapshot, now) : [];
- const claims = new Map<string, CoordinationClaim>();
- for (const item of snapshot?.items ?? []) if (item.coordinationClaim) claims.set(item.sysId,item.coordinationClaim);
  return <>
   <section className={`summary mobile-alert-summary${alerts.length ? ' needs-attention' : ''}`}>
    <div className="key-pattern" aria-hidden="true"><i>Ctrl</i><i>МТС</i><i>{'{ }'}</i><i>+</i></div>
@@ -113,7 +110,7 @@ export function IncidentAlerts({snapshot, now, loading, error, refresh, owner, o
    {!snapshot && !error ? <div className="loading-state" role="status"><Spinner/><span>Загружаем инциденты…</span></div> :
     !snapshot ? <div className="surface empty-state"><Icon name="signal" size={35}/><h2>Пока нет загруженных данных</h2></div> :
     !alerts.length ? <div className="surface empty-state"><Icon name="circleCheck" size={35}/><p>Список важных инцидентов пуст.</p></div> :
-    <ul className="mobile-queue" aria-label="Важные инциденты">{alerts.map(alert => <IncidentCard key={alert.item.sysId} alert={alert} now={now} claim={claims.get(alert.item.sysId)} owner={owner}/>)}</ul>}
+    <ul className="mobile-queue" aria-label="Важные инциденты">{alerts.map(alert => <IncidentCard key={alert.item.sysId} alert={alert} now={now}/>)}</ul>}
   </section>
  </>;
 }
