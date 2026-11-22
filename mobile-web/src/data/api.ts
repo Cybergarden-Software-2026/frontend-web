@@ -19,6 +19,10 @@ export function messageFor(code:string,status:number){
  if(code==='MOBILE_PAIRING_INVALID')return 'QR-код истёк или уже использован. Получите новый в веб-кабинете.';
  if(code==='MOBILE_DEVICE_IN_USE')return 'Устройство связано с другим аккаунтом. Сначала отвяжите его в прежнем кабинете.';
  if(code==='FCM_TOKEN_IN_USE')return 'Уведомления уже привязаны к другому устройству. Отзовите прежнюю привязку.';
+ if(code==='TEAM_CONTACT_ASSIGNMENT_CHANGED')return 'Команда изменилась. Проверьте новое назначение перед подтверждением.';
+ if(code==='TEAM_CONTACT_UNAVAILABLE')return 'Связь можно отметить после назначения команды решения.';
+ if(code==='TEAM_CONTACT_REQUEST_CONFLICT')return 'Этот запрос уже использован. Подтвердите новый контакт.';
+ if(code==='INCIDENT_NOT_FOUND')return 'Инцидент больше недоступен.';
  if(status===401)return 'Сессия завершена. Подключите устройство по новому QR-коду.';
  if(status===404||status===405)return 'Этот маршрут ещё не опубликован на сервере. Попробуйте после обновления backend.';
  if(status===503)return 'Мобильный вход или отправка push пока не включены на сервере.';
@@ -32,6 +36,7 @@ export const api={
  session:()=>request<Omit<MobileSession,'token'|'tokenType'>>('/mobile/session'),
  logout:()=>request<void>('/mobile/session',{method:'DELETE'}),
  incidents:()=>request<unknown>('/mobile/incidents').then(parseMobileSnapshot),
+ recordTeamContact:(sysId:string,team:string,requestId:string)=>request<unknown>(`/mobile/incidents/${encodeURIComponent(sysId)}/team-contact`,{method:'POST',body:JSON.stringify({team,requestId})}),
  notifications:(cursor?:string)=>request<NoticePage>('/mobile/notifications?limit=100'+(cursor?'&cursor='+encodeURIComponent(cursor):'')),
  read:(id:string|number)=>request<void>('/mobile/notifications/'+encodeURIComponent(String(id))+'/read',{method:'PUT'}),
  registerPush:(fcmToken:string)=>request<void>('/mobile/devices/current/token',{method:'PUT',body:JSON.stringify({fcmTargetType:'token',fcmToken})}),

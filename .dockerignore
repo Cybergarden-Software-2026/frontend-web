@@ -3,6 +3,9 @@
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !index.html
+!itsm/
+!itsm/index.html
+!itsm/itsm.css
 !tsconfig.json
 !vite.config.ts
 !src/

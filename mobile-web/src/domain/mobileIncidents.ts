@@ -12,6 +12,7 @@ export interface MobileIncident extends Partial<Record<typeof optionalIncidentFi
  normalizedState: string;
  priorityId: number;
  assignedGroupName: string | null;
+ teamPhoneIsTest?: boolean;
  submitDate: string | null;
  lastAssignmentToTeamDateTime: string | null;
  deadline: string | null;
@@ -32,9 +33,11 @@ export function parseMobileSnapshot(value:unknown):MobileSnapshot{
   }
   ids.add(item.sysId);
   const invalid = optionalIncidentFields.filter(key => item[key] != null && typeof item[key] !== 'string');
-  if (!invalid.length) return item;
+  const invalidPhoneFlag = item.teamPhoneIsTest !== undefined && typeof item.teamPhoneIsTest !== 'boolean';
+  if (!invalid.length && !invalidPhoneFlag) return item;
   const sanitized = {...item};
   for (const key of invalid) delete sanitized[key];
+  if (invalidPhoneFlag) delete sanitized.teamPhoneIsTest;
   return sanitized;
  });
  return {...s, items};

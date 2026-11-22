@@ -1,8 +1,9 @@
 import {Icon} from '../components/Icon.tsx';
 import {countdown} from '../domain/alerts.ts';
 import {displaySlaKind} from '../domain/deadlineDisplay.ts';
-import {STATES, stateOf, timestamp} from '../domain/incidents.ts';
+import {COORDINATOR_TEAM, STATES, stateOf, timestamp} from '../domain/incidents.ts';
 import {mobileIncident, type MobileIncident} from '../domain/mobileIncidents.ts';
+import {TeamContactAction} from './TeamContactAction.tsx';
 import './incident-detail.css';
 
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -19,16 +20,13 @@ function dateLabel(value: string | null): string {
   return time === null ? 'Не указано' : `${dateFormatter.format(time)} МСК`;
 }
 
-function phoneHref(value?: string | null): string | null {
-  if (typeof value !== 'string') return null;
-  const number = value.trim().replace(/[\s().-]/g, '');
-  return /^\+?[0-9]{7,15}$/.test(number) ? `tel:${number}` : null;
-}
-
-export function IncidentDetail({item, now, onBack}: {
+export function IncidentDetail({item, now, onBack, owner, refresh, onExpired}: {
   item: MobileIncident;
   now: number;
   onBack: () => void;
+  owner: string;
+  refresh: () => void;
+  onExpired: () => void;
 }) {
   const incident = mobileIncident(item);
   const state = stateOf(incident);
@@ -36,7 +34,10 @@ export function IncidentDetail({item, now, onBack}: {
   const stopped = sla === 'restored' || sla === 'closed';
   const deadlineLabel = stopped ? 'Остановлен' : sla === 'unknown' ? 'Срок не указан' : sla === 'late' ? 'Просрочка' : 'До дедлайна';
   const team = item.assignedGroupName?.trim();
-  const telephone = team ? phoneHref(item.teamPhone) : null;
+  const number = item.teamPhone?.trim();
+  const phone = team && number && /^\+[1-9][0-9]{1,14}$/.test(number) ? number : null;
+  const telephone = phone && item.teamPhoneIsTest === false ? `tel:${phone}` : null;
+  const canContact = team && team !== COORDINATOR_TEAM && team !== 'AutoClosedMi';
   const systemFacts = [
     ['Продукт', item.productName], ['Сервис', item.service], ['Сценарий использования', item.scenarioName],
     ['Тип сервиса', item.serviceType], ['Влияние', item.impact], ['Срочность', item.urgency],
@@ -76,18 +77,17 @@ export function IncidentDetail({item, now, onBack}: {
             <div>
               <dt>Команда</dt>
               <dd className="mobile-detail-team">
-                <span>{team || 'Не назначена'}{team && !telephone && <small>Номер не указан</small>}</span>
+                <span>{team || 'Не назначена'}{team && <small>{telephone ? phone : item.teamPhoneIsTest === true && phone ? `Тестовый номер ${phone}` : 'Номер не указан'}</small>}</span>
                 {telephone ? <a className="mobile-detail-call" href={telephone} aria-label={`Позвонить команде ${team}`}>
                   <Icon name="handset" size={19}/>
-                </a> : team && <button className="mobile-detail-call" type="button" disabled aria-label="Звонок недоступен. Номер команды не указан">
-                  <Icon name="handset" size={19}/>
-                </button>}
+                </a> : null}
               </dd>
             </div>
             {item.assignedEmployee && <div><dt>Исполнитель</dt><dd>{item.assignedEmployee}</dd></div>}
             {item.assignedEmployeeLogin && <div><dt>Логин исполнителя</dt><dd>{item.assignedEmployeeLogin}</dd></div>}
             {item.lastAssignmentToTeamDateTime && <div><dt>Назначение команде</dt><dd>{dateLabel(item.lastAssignmentToTeamDateTime)}</dd></div>}
           </dl>
+          {canContact && <TeamContactAction key={team} owner={owner} sysId={item.sysId} team={team} refresh={refresh} onExpired={onExpired}/>}
         </section>
       </div>
 

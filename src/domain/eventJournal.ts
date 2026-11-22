@@ -1,8 +1,9 @@
 import type { ChangeEvent } from './incidents.ts';
-import { describeEvent, isStateField, timestamp } from './incidents.ts';
+import { describeEvent, EVENT_LABELS, isStateField, timestamp } from './incidents.ts';
 
 export const JOURNAL_TYPES = [
  {id:'team',label:'Назначение команды',icon:'userPlus',tone:'purple'},
+ {id:'team_contacted',label:EVENT_LABELS.team_contacted,icon:'phone',tone:'teal'},
  {id:'created',label:'Новый инцидент',icon:'plus',tone:'blue'},
  {id:'critical',label:'Критический инцидент',icon:'alert',tone:'red'},
  {id:'state',label:'Изменение статуса',icon:'refresh',tone:'blue'},
@@ -28,10 +29,11 @@ export function matchesEventType(event:ChangeEvent,type:string):boolean {
  return event.types.includes(type);
 }
 export function journalEventType(event:ChangeEvent) {
- const order=['created','removed','resolved','closed','reopened','research','team','critical','priority','deadline','state','changed'];
+ const order=['created','removed','resolved','closed','reopened','research','team_contacted','team','critical','priority','deadline','state','changed'];
  return JOURNAL_TYPES.find(type=>type.id===order.find(id=>matchesEventType(event,id)))??JOURNAL_TYPES[JOURNAL_TYPES.length-1];
 }
 export function journalDescription(event:ChangeEvent):string {
+ if(event.types.includes('team_contacted'))return describeEvent(event)+'.';
  if(event.types.includes('created'))return `Зарегистрирован инцидент «${event.header || event.incidentId}».`;
  if(event.types.includes('removed'))return `Инцидент «${event.header || event.incidentId}» удалён из текущей выгрузки.`;
  const details:string[]=[];

@@ -13,6 +13,9 @@ Status reflects the committed implementation in the owning repository. Productio
 | Personal QR sign-in on mobile, account notifications, device token rotation and Firebase delivery for `critical.raised` | `backend` and `frontend-web` | Implemented (enabled per deployment) |
 | Separate QR-authenticated mobile PWA at `/mobile/`, account-bound offline cache and FCM registration | `frontend-web` | Implemented |
 | Current incidents and the three dashboard header conditions via `GET /api/v1/mobile/incidents` | `backend` | Implemented (personal mobile session) |
+| Team phone numbers in `GET /api/v1/teams` and `GET /api/v1/mobile/incidents` | `backend` | Implemented |
+| `POST /api/v1/mobile/incidents/{sysId}/team-contact` and `team_contacted` event projection | `backend` | Implemented (personal mobile session) |
+| Team phone display, mobile contact confirmation and web journal label | `frontend-web` | Implemented |
 | `GET /api/v1/snapshot` and `GET /api/v1/dashboard` | `backend` | Implemented |
 | `GET /api/v1/incidents` with page and cursor pagination, and `GET /api/v1/incidents/{key}?view=web` | `backend` | Implemented |
 | `GET /api/v1/teams` and rules-based `GET /api/v1/incidents/{key}/analysis` | `backend` | Implemented |
@@ -48,7 +51,7 @@ For a standard local Docker Compose deployment, the backend base URL is `http://
 | Load the dashboard | `GET /snapshot?view=web` | Full snapshot at the current revision |
 | Load the queue | `GET /incidents?page=1&pageSize=9` | Page of incidents, record count, and page count |
 | Receive updates | `GET /events/stream?view=web` | SSE stream of full snapshots |
-| List available teams | `GET /teams` | Team names and active assignment counts |
+| List available teams | `GET /teams` | Team names, phone numbers and active assignment counts |
 | View analysis | `GET /incidents/{key}/analysis` | Incident brief, facts, items requiring attention, and candidate teams |
 | Assign a team | `POST /incidents/{sysId}/assignment` | Full snapshot after the operation |
 
@@ -79,7 +82,8 @@ The signed-in web dashboard issues a five-minute, one-use code and encodes its e
 | `POST /mobile/pairings` | Personal coordinator cookie | `201 {code,expiresAt}` |
 | `POST /mobile/session` | JSON `{code,deviceId,platform?}` (`android` by default, or `web`) | `201 {token,tokenType:"Bearer",deviceId,user:{login,displayName}}` |
 | `GET /mobile/session` | Mobile session Bearer | `200 {deviceId,user:{login,displayName}}` |
-| `GET /mobile/incidents` | Mobile session Bearer | `200 {revision,serverTime,items}` with all current incidents, their team, UTC dates, priority, state and `headerKind` |
+| `GET /mobile/incidents` | Mobile session Bearer | `200 {revision,serverTime,items}` with current incidents, team and phone, UTC dates, priority, state and `headerKind` |
+| `POST /mobile/incidents/{sysId}/team-contact` | Mobile session Bearer, JSON `{team,requestId}` | `201` with the journal event, or `200` with the same event on retry |
 | `GET /mobile/notifications` | Mobile session Bearer, optional `limit` and `cursor` | `200 {items,nextCursor,unreadCount}`, same notification schema and per-account read state as the dashboard |
 | `PUT /mobile/notifications/{notification_id}/read` | Mobile session Bearer, empty body | `204` |
 | `PUT /mobile/devices/current/token` | Mobile session or push-only Bearer, JSON `{fcmToken,fcmTargetType?}` | `204` after registering or rotating the Firebase target |
@@ -92,6 +96,8 @@ The signed-in web dashboard issues a five-minute, one-use code and encodes its e
 Mobile sessions have no fixed expiry. A fresh QR login for the same account and installation rotates its bearer. Logout, owner revocation, or disabling the account invalidates it. Another account attempting to claim the installation receives `409 MOBILE_DEVICE_IN_USE` and keeps its QR usable. A used, expired or replaced code yields `401 MOBILE_PAIRING_INVALID`. An invalid session bearer yields `401 MOBILE_SESSION_UNAUTHORIZED` on the account endpoints. Use `fcmTargetType:"fid"` for a registered Firebase installation ID or `"token"` for a registration token (default). Firebase push requires `MOBILE_PUSH_ENABLED=true`. Examples and recovery steps are in the [mobile integration guide](https://github.com/Cybergarden-Software-2026/backend/blob/main/docs/mobile.md).
 
 To display header cards, select items with a non-null `headerKind`. Values are `critical`, `waiting` and `deadline`, in order of precedence when a ticket matches multiple conditions. Each item has `sysId`, `id`, `header`, `normalizedState`, `priorityId`, `assignedGroupName`, `submitDate`, `lastAssignmentToTeamDateTime`, `deadline` and `headerKind`. All items come from one snapshot revision. The server evaluates them at `serverTime` on each request, so a time threshold can change the cards within the same revision. Before the first successful import this route returns `503 SOURCE_NOT_READY`. After a successful empty import it returns `200` with `items: []`.
+
+Each mobile incident also has `teamPhone` and `teamPhoneIsTest`. The call action opens the system dialer for an international-format number with `teamPhoneIsTest: false`. The separate «Связались с командой» action sends the displayed `assignedGroupName` as `team` and a UUID `requestId`. A retry after a lost response uses the same UUID. The backend validates the assignment and records the authenticated coordinator and server time. See the [team contact examples and errors](https://github.com/Cybergarden-Software-2026/backend/blob/main/docs/mobile.md#связь-с-командой).
 
 ## 1. Get a snapshot and find incident identifiers
 
@@ -167,7 +173,7 @@ The full response contains `items`, `total`, `page`, `pageSize`, `totalPages`, a
 
 ## 3. Choose and assign a team
 
-**Directory.** `GET /teams` returns `{"items":[{"name":"Team A","activeCount":3}],"revision":12}`. The directory includes teams with no active assignments. `activeCount` counts currently present incidents assigned to the team, excluding resolved and closed incidents. Copy the exact `name` when assigning a team.
+**Directory.** `GET /teams` returns `{"items":[{"name":"Team A","activeCount":3,"phone":"+78193897280","phoneIsTest":true}],"revision":12}`. The directory includes teams with no active assignments. `activeCount` counts currently present incidents assigned to the team, excluding resolved and closed incidents. Copy the exact `name` when assigning a team. The backend generates a stable example number for a team without a configured phone. The interface labels that number as test data. A configured phone has `phoneIsTest: false`.
 
 **Analysis.** `GET /incidents/{key}/analysis` accepts the `sysId` or ticket number `id` of an incident that is still present. The response contains `sysId`, `revision`, `generatedAt`, `provider` (`rules` or `llm`, see below), `summary`, `facts` (pairs of `label` and `value`), `attention`, `missing`, and `candidates`. The Russian `summary` is a short brief of the problem, recorded actions and latest known outcome. Resolution notes may describe an earlier attempt, so the current status and any reopening qualify the outcome. Each candidate has `team`, `evidenceIds`, and `reason`. The algorithm suggests up to three directory teams based on completed cases that have a completion date and match either the service or the combination of scenario and product. For incidents awaiting routing by coordinators, when no such completed case matches, the algorithm checks incidents with the same criteria in `WorkInProgress` or `Research`. `evidenceIds` contains `INC…` ticket numbers and `reason` explains the source of the evidence. The candidate array is empty when there is insufficient evidence.
 
@@ -178,7 +184,7 @@ Team selection uses the existing evidence checks. With `provider: "llm"`, the re
 **Incident detail.** The web card’s “Помощь ИИ” dialog shows the brief. It can use the displayed card and available events while loading, offline or on an archived card. A matching server brief replaces it. While an open, online card has `summaryPending: true`, the client checks again with bounded backoff. Closing the dialog cancels the checks. The standalone demo API produces a rules-based brief.
 
 ```bash
-curl -fsS "$API/teams" | jq '.items[] | {name, activeCount}'
+curl -fsS "$API/teams" | jq '.items[] | {name, activeCount, phone, phoneIsTest}'
 curl -fsS "$API/incidents/$SYS_ID/analysis" | jq '{summary, attention, candidates, missing}'
 ```
 
@@ -271,11 +277,13 @@ Change reasons are `import`, `source`, `expiry`, `assignment`, and `mass_problem
 | `GET /notifications` | Parameters are `cursor` and `limit`. Returns `items`, `nextCursor`, and `unreadCount`. Each notification has `id`, `type`, `title`, `body`, `isRead`, `readAt`, and references to the related incident or event when available. |
 | `PUT /notifications/{notification_id}/read` | Takes a positive numeric notification ID. Send an empty body. The successful response is `204 No Content`. Marking an already-read notification yields the same response. |
 
-The `frontend-web` event journal uses the existing cursor-based `GET /events` archive together with recent SSE events, deduplicated by eventId. Its search, event-type and time-period filters are applied before eight-row display pagination. No backend schema or route changes are required.
+The `frontend-web` event journal uses the cursor-based `GET /events` archive together with recent SSE events, deduplicated by `eventId`. Its search, event-type and time-period filters are applied before eight-row display pagination.
 
 History and notification lists return records newest first. `limit` defaults to 50 and accepts 1–200. In history requests, `afterId` and `beforeId` are exclusive bounds on **eventId**. To fetch older events, send `nextCursor` as `beforeId`. For notifications, send it as `cursor`. A cursor of `null` ends pagination. These cursors contain up to 18 decimal digits.
 
-A history event contains `eventId`, `revision`, `incidentRevision`, `sysId`, `incidentId`, `header`, `at`, the arrays `types` and `fields`, and the source records `previous` and `current`, each of which may be `null`. One event can have multiple types. The `type` filter accepts one of `created`, `critical`, `assigned`, `resolved`, `closed`, `reopened`, `research`, `deadline`, `team`, `priority`, `changed`, or `removed`. SSE subscription cursors track snapshot revisions. History cursors track individual events.
+A history event contains `eventId`, `revision`, `incidentRevision`, `sysId`, `incidentId`, `header`, `at`, the arrays `types` and `fields`, and the source records `previous` and `current`, each of which may be `null`. One event can have multiple types. The `type` filter accepts one of `created`, `critical`, `assigned`, `team_contacted`, `resolved`, `closed`, `reopened`, `research`, `deadline`, `team`, `priority`, `changed`, or `removed`. SSE subscription cursors track snapshot revisions. History cursors track individual events.
+
+A confirmed contact has `types: ["team_contacted"]`, `contact: {team, actorLogin, actorDisplayName, requestId}`, `fields: []`, `previous: null` and `current: null`. The journal and incident history display the recorded team and actor using the «Связались с командой» label. The same event is available in SSE snapshots. The action records history independently of Firebase notification delivery.
 
 In accounts mode the authenticated login determines notification read state. In the open and legacy shared-key modes both notification routes accept `X-User-Id`. It allows 1–64 characters from `A–Z`, `a–z`, `0–9`, `_`, `.`, `@`, and `-`. If omitted, the server uses `DEFAULT_USER_ID`, typically `coordinator`.
 
@@ -382,7 +390,7 @@ The web client combines the shift response with live queue numbers calculated fr
 
 Implemented in `frontend-web`: `#teams` uses the existing `GET /teams` directory, including idle teams, and joins current snapshot incidents by the exact team name. During a directory failure it retains available names and falls back to snapshot teams. Search and team-state filters are client-side. Cards show priority/late/upcoming-deadline attention items, and counts of overdue, expiring and active incidents; Research remains active, and completed/closed incidents are excluded. The upcoming-deadline display uses the shared <20% rule. Team titles open their queue; incident links open the separate detail screen and preserve the Teams origin.
 
-The current `GET /teams` schema has no contact or description fields. Missing contacts are displayed as unavailable with copying disabled. The frontend does not invent phone numbers from the design example and adds no backend dependency. Coordinator descriptions use the configured coordinator role; other cards use a generic resolution-team label.
+The directory displays and copies a team's `phone` from `GET /teams`. Configured phone numbers offer a `tel:` link. Test numbers are marked in the card. If no usable number is available, the card displays an empty state and disables copying. Coordinator descriptions use the configured coordinator role. Other cards use a generic resolution-team label.
 
 
 ## Header signals and test scenarios

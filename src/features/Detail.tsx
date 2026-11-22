@@ -155,7 +155,10 @@ function Detail({ item, snapshot, revision, present, online, now, onBack, backLa
    <div className="incident-detail-main">
     <nav className="incident-detail-toolbar" aria-label="Действия инцидента">
      <button className="button secondary detail-back" onClick={onBack}><Icon name="left" size={16}/>{backLabel}</button>
-     <button className={`button detail-outline-action detail-ai-toggle ${aiOpen ? 'selected' : ''}`} aria-expanded={aiOpen} aria-controls="incident-assistant" onClick={() => setAiOpen(value => !value)}>Помощь ИИ<Icon name="spark" size={16}/></button>
+     <div className="incident-detail-actions">
+      <button className={`button detail-outline-action detail-ai-toggle ${aiOpen ? 'selected' : ''}`} aria-expanded={aiOpen} aria-controls="incident-assistant" onClick={() => setAiOpen(value => !value)}>Помощь ИИ<Icon name="spark" size={16}/></button>
+      <a className="button detail-outline-action" href="/itsm/" target="_blank" rel="noopener" title="Открыть ITSM в новой вкладке">Перейти в ITSM<Icon name="monitor" size={16}/></a>
+     </div>
     </nav>
     <header className="surface incident-summary">
      <h1 id="incident-title" tabIndex={-1}>{item.header || 'Инцидент без заголовка'}</h1>
