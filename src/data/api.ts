@@ -104,8 +104,8 @@ async function eventPage(path: string, limit: number, beforeId?: string, signal?
 
 export const api = {
   coordinatorSession: (signal?: AbortSignal) => coordinatorSession({ signal }),
-  async signInCoordinator(credentials: CoordinatorCredentials, signal?: AbortSignal) {
-    const session = await coordinatorSession({ method: 'POST', body: JSON.stringify(credentials), signal });
+  async signInCoordinator(credentials: CoordinatorCredentials, signal?: AbortSignal, options?: Pick<RequestInit, 'mode' | 'redirect'>) {
+    const session = await coordinatorSession({ method: 'POST', body: JSON.stringify(credentials), signal, ...options });
     sessionVersion++;
     return session;
   },

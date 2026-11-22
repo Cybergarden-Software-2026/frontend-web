@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthGate } from './app/AuthGate';
+import { takePresentationLink } from './app/presentationEntry';
 import './reference.css';
 import './analytics.css';
 import './styles.css';
@@ -13,4 +14,5 @@ import './teams-directory.css';
 import './mass-problems.css';
 import './fonts.css';
 import './auth.css';
-createRoot(document.getElementById('root')!).render(<React.StrictMode><AuthGate /></React.StrictMode>);
+const presentationLink = takePresentationLink(window.location, window.history);
+createRoot(document.getElementById('root')!).render(<React.StrictMode><AuthGate presentationLink={presentationLink} /></React.StrictMode>);

@@ -74,3 +74,4 @@
 @media(prefers-reduced-motion:reduce){.login-orbit,.login-signal-key{animation:none}}
 
 @media(max-width:850px){.bottom-nav:has(.logout-mobile){display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) 28px;padding-inline:4px;gap:0}.bottom-nav:has(.logout-mobile) .nav-item{min-width:0;padding:6px 1px;font-size:9px;text-align:center;line-height:1.2}.bottom-nav:has(.logout-mobile) .nav-item>span{white-space:normal}.bottom-nav .logout-mobile{width:28px;height:42px;align-self:start;justify-self:center}}
+.presentation-notice{width:min(100%,560px);margin:auto;border-radius:23px;background:white}
