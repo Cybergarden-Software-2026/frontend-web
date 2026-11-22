@@ -13,4 +13,5 @@ import './teams-directory.css';
 import './mass-problems.css';
 import './fonts.css';
 import './auth.css';
+import './features/phone-pairing.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><AuthGate /></React.StrictMode>);
