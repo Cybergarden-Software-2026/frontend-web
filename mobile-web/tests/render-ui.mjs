@@ -21,14 +21,14 @@ try{
  const realPhone=detail({teamPhone:'+12025550100',teamPhoneIsTest:false});
  assert.match(realPhone,/<a[^>]+href="tel:\+12025550100"[^>]*><svg[^>]*>.*<\/svg>Связаться с командой<\/a>/);
  assert.equal((realPhone.match(/href="tel:/g)||[]).length,1);
- assert.doesNotMatch(realPhone,/Связались с командой/);
+ assert.doesNotMatch(realPhone,/Отметить контакт/);
  const testPhone=detail({teamPhone:'+78194693716',teamPhoneIsTest:true});
  assert.doesNotMatch(testPhone,/href="tel:/);assert.match(testPhone,/Тестовый номер \+78194693716/);
- assert.match(testPhone,/<button[^>]+disabled=""[^>]*><svg[^>]*>.*<\/svg>Связаться с командой<\/button>/);
+ assert.match(testPhone,/<button[^>]+><svg[^>]*>.*<\/svg>Отметить контакт<\/button>/);
  assert.doesNotMatch(detail({teamPhone:'+78194693716'}),/href="tel:/);
  assert.doesNotMatch(detail({teamPhone:null,teamPhoneIsTest:false}),/href="tel:/);
- assert.doesNotMatch(detail({assignedGroupName:null}),/Связаться с командой/);
- assert.doesNotMatch(detail({assignedGroupName:'КЦ ИТ Координаторы Массовых Инцидентов',teamPhone:'+12025550100',teamPhoneIsTest:false}),/Связаться с командой/);
+ assert.doesNotMatch(detail({assignedGroupName:null}),/Связаться с командой|Отметить контакт/);
+ assert.doesNotMatch(detail({assignedGroupName:'КЦ ИТ Координаторы Массовых Инцидентов',teamPhone:'+12025550100',teamPhoneIsTest:false}),/Связаться с командой|Отметить контакт/);
  const login=renderToStaticMarkup(React.createElement(Login,{notice:'',onLogin:async()=>{}}));
  assert.match(login,/Сканировать QR-код/);assert.match(login,/Код действует 5 минут/);assert.match(login,/globe-scene/);
  Object.defineProperty(navigator,'standalone',{configurable:true,value:true});

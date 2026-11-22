@@ -65,13 +65,8 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
     }
   }
 
-  const label = <><Icon name="handset" size={18}/>Связаться с командой</>;
-  if (!telephone) return <div className="mobile-team-contact">
-    <button type="button" className="button outline" disabled>{label}</button>
-  </div>;
-
   return <div className="mobile-team-contact">
-    <a className="button outline" href={telephone} aria-disabled={busy} aria-busy={busy} onClick={event => {
+    {telephone ? <a className="button outline" href={telephone} aria-disabled={busy} aria-busy={busy} onClick={event => {
       if (inFlight.current) {
         event.preventDefault();
         return;
@@ -79,8 +74,10 @@ export function TeamContactAction({owner, sysId, team, telephone, refresh, onExp
       // Start the request in this click and let the link open the dialer directly.
       void record();
     }}>
-      {label}
-    </a>
+      <Icon name="handset" size={18}/>Связаться с командой
+    </a> : <button type="button" className="button outline" disabled={busy} aria-busy={busy} onClick={() => void record()}>
+      <Icon name="check" size={18}/>Отметить контакт
+    </button>}
     {saved && <p role="status">Контакт записан в журнал.</p>}
     {error && <>
       <p role="alert" className="error">{error.message}</p>
