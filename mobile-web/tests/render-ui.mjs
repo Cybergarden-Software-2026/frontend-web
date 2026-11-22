@@ -21,7 +21,7 @@ try{
  Object.defineProperty(navigator,'standalone',{configurable:true,value:true});
  try{
   const installed=renderToStaticMarkup(React.createElement(Login,{notice:'',onLogin:async()=>{}}));
-  assert.match(installed,/Откроется камера iPhone/);assert.match(installed,/capture="environment"/);assert.match(installed,/Открыть просмотр камеры/);
+  assert.equal(installed,login);
  }finally{delete navigator.standalone}
  console.log('SSR checks: three live header categories, ordinary incident exclusion, timer, QR login and globe.');
 }finally{await server.close()}
