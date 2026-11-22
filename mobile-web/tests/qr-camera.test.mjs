@@ -12,7 +12,7 @@ function frame(inverted=false){
  return {data,width,height:width};
 }
 function canvas(inverted=false){return {getContext:()=>({drawImage(){},getImageData:()=>frame(inverted)})}}
-function videoElement(overrides={}){return Object.assign(new EventTarget(),{readyState:2,videoWidth:164,videoHeight:164,paused:false,srcObject:null,setAttribute(){},async play(){}},overrides)}
+function videoElement(overrides={}){return Object.assign(new EventTarget(),{readyState:2,videoWidth:164,videoHeight:164,currentTime:0,paused:false,srcObject:null,setAttribute(){},async play(){}},overrides)}
 test('the actual decoder reads normal and inverted QR pixels without altering the one-use code',()=>{
  for(const inverted of [false,true])assert.equal(decodeCameraFrame({readyState:2,videoWidth:164,videoHeight:164},canvas(inverted)),fixture.code);
  assert.equal(decodeCameraFrame({readyState:0,videoWidth:0,videoHeight:0},canvas()),null);
@@ -29,12 +29,32 @@ test('camera starts scanning after permission and releases its stream after dete
   assert.equal(played,true);assert.equal(ready,true);assert.deepEqual(received,[fixture.code]);assert.ok(stopped);assert.equal(video.srcObject,null);
  }finally{if(media)Object.defineProperty(navigator,'mediaDevices',media);else delete navigator.mediaDevices;globalThis.document=doc}
 });
-test('metadata alone is not a usable preview: wait for the first presented frame',async()=>{
+test('the first presented frame can confirm a usable preview',async()=>{
  let frameCallback,ready=false,cancelled=false;
  const video=videoElement({requestVideoFrameCallback(callback){frameCallback=callback;return 1},cancelVideoFrameCallback(){cancelled=true}});
  const task=waitForCameraPreview(video,new AbortController().signal,1000).then(()=>ready=true);
  await new Promise(resolve=>setTimeout(resolve,5));assert.equal(ready,false);
  frameCallback();await task;assert.equal(ready,true);assert.equal(cancelled,true);
+});
+test('video that is playing can be scanned without a compositor callback',async()=>{
+ const video=videoElement({requestVideoFrameCallback(){return 1},async play(){throw new DOMException('Interrupted','AbortError')}});
+ const task=waitForCameraPreview(video,new AbortController().signal,1000);
+ video.currentTime=.1;
+ video.dispatchEvent(new Event('playing'));
+ await task;
+});
+test('Safari can resume the same attached stream from a user gesture after autoplay is denied',async()=>{
+ let resume,gesture=false,actions=0;
+ const video=videoElement({paused:true,async play(){
+  if(!gesture)throw new DOMException('User gesture required','NotAllowedError');
+  this.paused=false;this.currentTime=.1;
+ }});
+ const task=waitForCameraPreview(video,new AbortController().signal,25,action=>{resume=action;actions++});
+ await new Promise(resolve=>setTimeout(resolve,35));
+ assert.equal(typeof resume,'function');
+ gesture=true;resume();gesture=false;
+ await task;
+ assert.equal(resume,null);assert.equal(actions,2);
 });
 test('iOS standalone pending play and absent frames time out instead of showing an endless black preview',async()=>{
  const video=videoElement({readyState:0,videoWidth:0,videoHeight:0,paused:true,play(){return new Promise(()=>{})}});
