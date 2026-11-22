@@ -4,6 +4,7 @@ import {Brand, Spinner, message} from '../components/ui.tsx';
 import {api, ApiError} from '../data/api.ts';
 import {useMobileIncidents} from '../data/useMobileIncidents.ts';
 import type {MobileSession} from '../data/vault.ts';
+import {withPushDeadline} from '../push-readiness.ts';
 import {IncidentAlerts} from './IncidentAlerts.tsx';
 import './mobile-workspace.css';
 
@@ -64,20 +65,22 @@ export function Workspace({session, onExit, onExpired}: {
    }
    // iOS requires a direct user gesture. Request permission before loading Firebase.
    const permission = interactive && Notification.permission === 'default'
-    ? await Notification.requestPermission()
+    ? await withPushDeadline(Notification.requestPermission(), 30000,
+      'Система не ответила на запрос уведомлений. Откройте приложение с домашнего экрана и повторите.')
     : Notification.permission;
    if (permission !== 'granted') {
     setPushEnabled(false);
     throw new Error('Разрешите уведомления для приложения в системных настройках.');
    }
-   const push = await import('../push.ts');
+   const push = await withPushDeadline(import('../push.ts'), 10000,
+    'Модуль уведомлений не загрузился. Проверьте сеть и повторите.');
    const {token} = await push.enablePush();
    if (!alive.current || leaving.current) return;
    await api.registerPush(token);
    if (!alive.current || leaving.current) return;
    setPushEnabled(true);
    try { localStorage.setItem(pushOwnerKey, owner); } catch {}
-   if (interactive) setPushStatus('Уведомления о критических сбоях подключены.');
+   if (interactive) setPushStatus('Уведомления подключены.');
   } catch (error) {
    if (!alive.current || leaving.current) return;
    if (error instanceof ApiError && error.status === 401) {
@@ -118,7 +121,7 @@ export function Workspace({session, onExit, onExpired}: {
 
  function openNotifications() {
   if (pushEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-   setPushStatus(status => status ? '' : 'Уведомления о критических сбоях подключены.');
+   setPushStatus(status => status ? '' : 'Уведомления подключены.');
    return;
   }
   void connectPush(true);
