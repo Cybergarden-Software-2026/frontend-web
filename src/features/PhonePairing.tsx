@@ -99,8 +99,8 @@ export function PhonePairing() {
     {open && <Dialog title="Подключить телефон" onClose={close} className="phone-pairing-dialog">
       {loading && <p role="status">Загружаем QR-код…</p>}
       {pairing && <div className="phone-pairing-code">
-        <p>Отсканируйте код в приложении UnderCtrl, чтобы получать уведомления о критических сбоях.</p>
-        <QRCodeSVG value={pairing.code} size={224} level="M" marginSize={4} title="QR-код для подключения телефона"/>
+        <p>Отсканируйте QR-код в приложении UnderCtrl, чтобы войти в свой аккаунт на телефоне.</p>
+        <QRCodeSVG value={pairing.code} size={224} level="M" marginSize={4} title="Одноразовый QR-код для входа в аккаунт"/>
         <small>Одноразовый код действует до {new Date(pairing.expiresAt).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}.</small>
       </div>}
       {error && <div className="phone-pairing-retry"><p role="status">{error}</p>
@@ -109,7 +109,7 @@ export function PhonePairing() {
       {devices.length > 0 && <section className="phone-pairing-devices"><h3>Подключённые устройства</h3>
         <ul>{devices.map(device => <li key={device.deviceId}>
           <span>{device.platform === 'android' ? 'Android' : 'Веб-приложение'}
-            <small>{dateTime(device.createdAt)} · {device.pushEnabled ? 'Уведомления включены' : 'Ожидает регистрации'}</small>
+            <small>{dateTime(device.createdAt)} · {device.pushEnabled ? 'Уведомления включены' : 'Уведомления не подключены'}</small>
           </span>
           <button type="button" className="button" disabled={removing !== null} onClick={() => void remove(device.deviceId)}>Отключить</button>
         </li>)}</ul>
