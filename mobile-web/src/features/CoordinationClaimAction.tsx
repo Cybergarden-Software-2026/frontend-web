@@ -53,7 +53,7 @@ export function CoordinationClaimAction({sysId, claim, revision, owner, refresh,
     {current && <p className="mobile-claim-label" role="status">{coordinationClaimLabel(current,owner)}</p>}
     {(!current || isOwner) && <button type="button" className="button outline" disabled={busy} aria-busy={busy} onClick={() => void update()}>
       {busy ? <Spinner/> : <Icon name={isOwner ? 'close' : 'userPlus'} size={17}/>}
-      {isOwner ? 'Освободить инцидент' : 'Взять в работу'}
+      {isOwner ? 'Освободить инцидент' : 'Принять в работу'}
     </button>}
     {error && <p className="error" role="alert">{error}</p>}
   </div>;

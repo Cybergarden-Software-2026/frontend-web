@@ -22,12 +22,12 @@ try{
  const mine={login:'anna',displayName:'Анна',claimedAt:start};
  const other={...mine,login:'boris',displayName:'Борис'};
  const claimable=(claim,fields={})=>detail({assignedGroupName:coordinatorGroup,coordinationClaim:claim,...fields});
- assert.match(claimable(null),/Взять в работу/);
+ assert.match(claimable(null),/Принять в работу/);
  assert.match(claimable(mine),/В работе у вас/);assert.match(claimable(mine),/Освободить инцидент/);
- assert.match(claimable(other),/В работе · Борис/);assert.doesNotMatch(claimable(other),/Взять в работу|Освободить инцидент/);
- assert.doesNotMatch(claimable(undefined),/Взять в работу/);
- assert.doesNotMatch(claimable(null,{normalizedState:'Resolved'}),/Взять в работу/);
- assert.doesNotMatch(claimable(null,{assignedGroupName:'Команда решения'}),/Взять в работу/);
+ assert.match(claimable(other),/В работе · Борис/);assert.doesNotMatch(claimable(other),/Принять в работу|Освободить инцидент/);
+ assert.doesNotMatch(claimable(undefined),/Принять в работу/);
+ assert.doesNotMatch(claimable(null,{normalizedState:'Resolved'}),/Принять в работу/);
+ assert.doesNotMatch(claimable(null,{assignedGroupName:'Команда решения'}),/Принять в работу/);
  const claimedSnapshot={...snapshot,items:snapshot.items.map(i=>i.sysId==='2'?{...i,coordinationClaim:mine}:i)};
  const claimedMarkup=renderToStaticMarkup(React.createElement(IncidentAlerts,{snapshot:claimedSnapshot,now,loading:false,error:'',refresh(){},owner:'anna',onExpired(){}}));
  assert.match(claimedMarkup,/В работе у вас/);

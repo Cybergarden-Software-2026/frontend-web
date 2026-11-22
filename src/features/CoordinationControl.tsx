@@ -35,7 +35,7 @@ export function CoordinationControl({ item, actions, present = true }: {
     actions.change(item.sysId, !own);
    }}
   >
-   {pending ? 'Обновляем…' : own ? 'Освободить инцидент' : 'Взять в работу'}
+   {pending ? 'Обновляем…' : own ? 'Освободить инцидент' : 'Принять в работу'}
   </button>}
  </div>;
 }
