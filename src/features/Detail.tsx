@@ -167,7 +167,10 @@ function Detail({ item, snapshot, revision, online, now, onBack, backLabel, onAs
      </div>
     </header>
     {aiOpen && <Dialog title="Помощь ИИ" onClose={() => setAiOpen(false)}><section className="incident-assistant detail-card" id="incident-assistant" aria-labelledby="assistant-title">
-     <div className="detail-card-heading"><h2 id="assistant-title"><Icon name="spark" size={18}/>Помощь координатору</h2><span className="small-tag tone-purple">{currentAnalysis?.provider === 'llm' ? 'ИИ-анализ' : 'Анализ по правилам'}</span></div>
+     <div className="detail-card-heading">
+      <h2 id="assistant-title"><Icon name="spark" size={18}/>Помощь координатору</h2>
+      {currentAnalysis && <span className="small-tag tone-purple">{currentAnalysis.provider === 'llm' ? 'ИИ-анализ' : 'Анализ по правилам'}</span>}
+     </div>
      {busy && <p className="detail-muted" role="status">Собираем факты и похожие случаи…</p>}
      {failure && <div className="detail-inline-error" role="alert"><p>{failure}</p><button className="text-button" onClick={() => setRetry(value => value + 1)}>Повторить</button></div>}
      {currentAnalysis && <><p>{currentAnalysis.summary}</p>{currentAnalysis.attention.length > 0 && <ul>{currentAnalysis.attention.map(text => <li key={text}>{text}</li>)}</ul>}
