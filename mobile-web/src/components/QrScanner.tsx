@@ -57,15 +57,15 @@ export function QrScanner({onCode, onClose, onManual}: {onCode: (code: string) =
  return <div className="scanner" role="dialog" aria-modal="true" aria-labelledby="scan-title"><div className="scanner-panel">
   <button className="close" aria-label="Закрыть камеру" onClick={() => { stop(); onClose(); }}>×</button>
   <h2 id="scan-title">Наведите камеру на QR</h2>
-  <p>Увеличьте QR под меню основного сайта. Если просмотр не появляется, используйте «Снять QR камерой».</p>
+  <p>Увеличьте QR под меню основного сайта и поместите его в рамку.</p>
   <div className="camera"><video ref={video} width={640} height={480} autoPlay playsInline muted/>
    {ready && active ? <span className="scan-frame"/> : <div className="camera-status" role="status">{!error && (active || readingPhoto) && <Spinner/>}<span>{readingPhoto ? 'Читаем QR со снимка…' : error ? 'Просмотр камеры недоступен' : active ? 'Запускаем камеру…' : 'Снимите QR целиком системной камерой'}</span></div>}
   </div>
   {ready && <p role="status">Ищем QR-код…</p>}
   {error && <p className="error" role="alert">{error}</p>}
   <input ref={photo} type="file" accept="image/*" capture="environment" hidden aria-label="Снимок QR-кода" onChange={event => void readPhoto(event)}/>
-  <button className="button primary" disabled={readingPhoto} onClick={takePhoto}>Снять QR камерой</button>
-  <button className="button outline" disabled={readingPhoto} onClick={() => { stop(); setActive(true); setAttempt(value => value + 1); }}>Перезапустить просмотр</button>
+  {(error || !active) && <button className="button primary" disabled={readingPhoto} onClick={takePhoto}>Снять QR камерой</button>}
+  {(error || !active) && <button className="button outline" disabled={readingPhoto} onClick={() => { stop(); setActive(true); setAttempt(value => value + 1); }}>Перезапустить просмотр</button>}
   <button className="button outline" disabled={readingPhoto} onClick={() => { stop(); onManual(); }}>Ввести код вручную</button>
  </div></div>;
 }
