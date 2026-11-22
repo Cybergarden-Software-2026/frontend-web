@@ -29,6 +29,8 @@ public/*
 !docker/
 docker/*
 !docker/nginx.conf
+!mobile-web/
+!mobile-web/**
 
 **/.git
 **/.data
@@ -37,6 +39,7 @@ docker/*
 **/.ssh
 **/node_modules
 **/dist
+**/tests/render-ui.mjs
 **/*.key
 **/*.pem
 **/*.p12
