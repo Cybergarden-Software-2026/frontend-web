@@ -15,9 +15,22 @@ try{
  {...base,sysId:'2',id:'INC2',header:'Ждёт координатора',assignedGroupName:'КЦ ИТ Координаторы Массовых Инцидентов',headerKind:'waiting'},
  {...base,sysId:'3',id:'INC3',header:'Срок подходит',deadline:'2026-11-22T10:01:00Z',headerKind:'deadline'},
  {...base,sysId:'4',id:'INC4',header:'Обычная невидимая задача'}]};
- const markup=renderToStaticMarkup(React.createElement(IncidentAlerts,{snapshot,now,loading:false,error:'',refresh(){}}));
+ const markup=renderToStaticMarkup(React.createElement(IncidentAlerts,{snapshot,now,loading:false,error:'',refresh(){},owner:'anna',onExpired(){}}));
  assert.match(markup,/Критическая задача/);assert.match(markup,/Ждёт координатора/);assert.match(markup,/Срок подходит/);assert.doesNotMatch(markup,/Обычная невидимая задача/);assert.match(markup,/00:01:00/);
- const detail=(fields)=>renderToStaticMarkup(React.createElement(IncidentDetail,{item:{...snapshot.items[0],...fields},now,owner:'anna',onBack(){},refresh(){},onExpired(){}}));
+ const detail=(fields)=>renderToStaticMarkup(React.createElement(IncidentDetail,{item:{...snapshot.items[0],...fields},revision:snapshot.revision,now,owner:'anna',onBack(){},refresh(){},onExpired(){}}));
+ const coordinatorGroup=snapshot.items[1].assignedGroupName;
+ const mine={login:'anna',displayName:'Анна',claimedAt:start};
+ const other={...mine,login:'boris',displayName:'Борис'};
+ const claimable=(claim,fields={})=>detail({assignedGroupName:coordinatorGroup,coordinationClaim:claim,...fields});
+ assert.match(claimable(null),/Взять в работу/);
+ assert.match(claimable(mine),/В работе у вас/);assert.match(claimable(mine),/Освободить инцидент/);
+ assert.match(claimable(other),/В работе · Борис/);assert.doesNotMatch(claimable(other),/Взять в работу|Освободить инцидент/);
+ assert.doesNotMatch(claimable(undefined),/Взять в работу/);
+ assert.doesNotMatch(claimable(null,{normalizedState:'Resolved'}),/Взять в работу/);
+ assert.doesNotMatch(claimable(null,{assignedGroupName:'Команда решения'}),/Взять в работу/);
+ const claimedSnapshot={...snapshot,items:snapshot.items.map(i=>i.sysId==='2'?{...i,coordinationClaim:mine}:i)};
+ const claimedMarkup=renderToStaticMarkup(React.createElement(IncidentAlerts,{snapshot:claimedSnapshot,now,loading:false,error:'',refresh(){},owner:'anna',onExpired(){}}));
+ assert.match(claimedMarkup,/В работе у вас/);
  const realPhone=detail({teamPhone:'+12025550100',teamPhoneIsTest:false});
  assert.match(realPhone,/<a[^>]+href="tel:\+12025550100"[^>]*><svg[^>]*>.*<\/svg>Связаться с командой<\/a>/);
  assert.doesNotMatch(realPhone,/<dialog\b/);

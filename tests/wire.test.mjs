@@ -67,6 +67,46 @@ test('wire keeps raw status text and accepts source decimal codes without coerci
   }
 });
 
+test('coordination claim is independent of ITSM state and distinguishes unsupported data', async t => {
+  const coordinationClaim = { login: 'shift-a', displayName: 'Анна', claimedAt: '2026-11-21T07:00:00Z' };
+  const claimed = { ...raw, coordinationClaim };
+  t.mock.method(globalThis, 'fetch', async url => Response.json(url.includes('?view=web') && url.includes('/incidents/')
+    ? { incident: claimed, revision: 6 }
+    : { ...snapshot, items: [claimed], revision: 6 }));
+
+  const [snapshotView, page, detail] = await Promise.all([api.snapshot(), api.incidents({}), api.incident(raw.sysId)]);
+  for (const incident of [snapshotView.items[0], page.items[0], detail.incident]) {
+    assert.deepEqual(incident.coordinationClaim, coordinationClaim);
+    assert.equal(stateOf(incident), stateOf(normalizeIncident(raw)));
+  }
+  assert.equal(normalizeIncident({ ...raw, coordinationClaim: null }).coordinationClaim, null);
+  assert.equal(normalizeIncident(raw).coordinationClaim, undefined);
+  assert.equal(normalizeIncident({ ...raw, coordinationClaim: { login: 1 } }).coordinationClaim, undefined);
+});
+
+test('claim and release use the web session and surface a concurrent claim conflict', async t => {
+  const calls = [];
+  const coordinationClaim = { login: 'shift-a', displayName: 'Анна', claimedAt: '2026-11-21T07:00:00Z' };
+  const conflict = { code: 'COORDINATION_ALREADY_CLAIMED', message: 'Инцидент уже взят в работу' };
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    calls.push({ url, init });
+    if (calls.length === 3) return Response.json(conflict, { status: 409 });
+    return Response.json({ coordinationClaim: init.method === 'PUT' ? coordinationClaim : null, revision: 6 + calls.length });
+  });
+
+  assert.deepEqual(await api.setCoordinationClaim('uuid/one', true), { coordinationClaim, revision: 7 });
+  assert.deepEqual(await api.setCoordinationClaim('uuid/one', false), { coordinationClaim: null, revision: 8 });
+  await assert.rejects(api.setCoordinationClaim('uuid/one', true), error =>
+    error instanceof ApiError && error.status === 409 && error.code === conflict.code);
+  assert.deepEqual(calls.map(call => call.init.method), ['PUT', 'DELETE', 'PUT']);
+  for (const { url, init } of calls) {
+    assert.equal(url, '/api/v1/incidents/uuid%2Fone/coordination-claim');
+    assert.equal(init.credentials, 'include');
+    assert.equal(init.body, undefined);
+    assert.equal(init.headers.has('Authorization'), false);
+  }
+});
+
 test('web HTTP snapshot, queue, and keyless assignment use the same incident normalization', async t => {
   const calls = [];
   const conflict = 'Данные изменились. Проверьте актуальную команду и повторите назначение.';

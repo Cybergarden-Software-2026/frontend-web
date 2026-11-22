@@ -11,6 +11,7 @@ import { IncidentArrivalTracker } from '../domain/alertSignals';
 import { timestamp } from '../domain/incidents';
 import { displaySlaKind } from '../domain/deadlineDisplay';
 import { queueSlaTimeBucket } from '../domain/queueSlaRefresh';
+import { CoordinationControl, type CoordinationActions } from './CoordinationControl';
 
 const SLA_FILTER_LABELS: Record<Sla, string> = {
  late: 'Просрочен',
@@ -31,7 +32,7 @@ export function QueueSla({item,now}:{item:Incident;now:number}) {
  return <span className={`queue-sla ${kind}`}><strong>{delta<=0?'− ':''}{value}</strong><small>{kind==='late'?'Просрочен':kind==='soon'?'Истекает':'Осталось'}</small></span>;
 }
 
-export function IncidentDashboard({snapshot,now,connected,loading,onOpen,onAssign,teamContext}:{snapshot:Snapshot|null;now:number;connected:boolean;loading:boolean;onOpen:(id:string)=>void;onAssign:(id:string)=>void;teamContext:{name:string;token:number}|null}) {
+export function IncidentDashboard({snapshot,now,connected,loading,onOpen,onAssign,teamContext,coordination}:{snapshot:Snapshot|null;now:number;connected:boolean;loading:boolean;onOpen:(id:string)=>void;onAssign:(id:string)=>void;teamContext:{name:string;token:number}|null;coordination:CoordinationActions}) {
  const items=snapshot?.items??[];
  const [group,setGroup]=useState<Group>('all'),[search,setSearch]=useState(''),[debounced,setDebounced]=useState(''),[team,setTeam]=useState(''),[sort,setSort]=useState('priority'),[page,setPage]=useState(1),[pageSize,setPageSize]=useState(readIncidentPageSize);
  const [response,setResponse]=useState<{key:string;data:QueuePage}|null>(null),[failure,setFailure]=useState(false),[fetching,setFetching]=useState(false);
@@ -80,7 +81,8 @@ export function IncidentDashboard({snapshot,now,connected,loading,onOpen,onAssig
  }
  const rows = queuePending ? [] : result.items.map(item => {
   const hasTeam = Boolean(item.assignedGroupName.trim());
-  const assignable = canAssign(item);
+  const claimedByOther = item.coordinationClaim && item.coordinationClaim.login !== coordination.login;
+  const assignable = canAssign(item) && !claimedByOther;
   const arrived = (arrivals[item.sysId] ?? 0) > Date.now();
   const classes = `${belongs(item,'critical') ? ' row-critical' : ''}${arrived ? ' incident-arrival' : ''}`;
   const copy = <span className="queue-incident-copy"><span className="incident-id">{item.id}</span><strong>{item.header}</strong><small title={item.description}>{item.shortDescription || item.description || item.productName}</small></span>;
@@ -89,7 +91,8 @@ export function IncidentDashboard({snapshot,now,connected,loading,onOpen,onAssig
   const deadline = cell(item, ['deadline'], <QueueSla item={item} now={now}/>);
   const owner = cell(item, ['assignedGroupName'], <div className="queue-team-cell">
    {hasTeam && <Team name={item.assignedGroupName}/>}
-   {assignable && <button className={`assign-team-button ${hasTeam ? 'has-team' : ''}`} onClick={event => { event.stopPropagation(); onAssign(item.sysId); }} aria-label={`Назначить команду для ${item.id}`}><Icon name="userPlus" size={14}/>{hasTeam ? 'Сменить' : 'Назначить'}</button>}
+   <CoordinationControl item={item} actions={coordination}/>
+   {assignable && <button className={`assign-team-button ${hasTeam ? 'has-team' : ''}`} disabled={coordination.pending.has(item.sysId)} onClick={event => { event.stopPropagation(); onAssign(item.sysId); }} aria-label={`Назначить команду для ${item.id}`}><Icon name="userPlus" size={14}/>{hasTeam ? 'Сменить' : 'Назначить'}</button>}
    {!hasTeam && !assignable && <span className="muted">Не назначена</span>}
   </div>);
   return { item, classes, arrived, copy, priority, status, deadline, owner };

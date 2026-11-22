@@ -47,3 +47,26 @@ test('team contact records the exact team with a stable idempotency key for a re
   }
  }finally{setToken(null);globalThis.fetch=original}
 });
+
+test('claim and release send bodyless Bearer requests and read the confirmed revision',async()=>{
+ const original=globalThis.fetch,calls=[];
+ const claim={login:'anna',displayName:'Анна',claimedAt:'2026-11-22T10:00:00Z'};
+ globalThis.fetch=async(url,init)=>{
+  calls.push({url,init});
+  return Response.json({revision:42+calls.length,coordinationClaim:init.method==='PUT'?claim:null});
+ };
+ try{
+  setToken('mobile');
+  assert.deepEqual(await api.coordinationClaim('sys/1','PUT'),{revision:43,coordinationClaim:claim});
+  assert.deepEqual(await api.coordinationClaim('sys/1','DELETE'),{revision:44,coordinationClaim:null});
+  assert.deepEqual(calls.map(call=>call.init.method),['PUT','DELETE']);
+  for(const {url,init} of calls){
+   assert.match(url,/\/mobile\/incidents\/sys%2F1\/coordination-claim$/);
+   assert.equal(init.credentials,'omit');
+   assert.equal(init.headers.Authorization,'Bearer mobile');
+   assert.equal(init.body,undefined);
+  }
+  globalThis.fetch=async()=>Response.json({revision:45});
+  await assert.rejects(api.coordinationClaim('sys/1','PUT'),/Не удалось подтвердить/);
+ }finally{setToken(null);globalThis.fetch=original}
+});
