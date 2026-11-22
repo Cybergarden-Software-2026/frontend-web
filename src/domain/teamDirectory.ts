@@ -22,7 +22,7 @@ export function teamDirectory(items:Incident[],directory:TeamDirectoryEntry[],no
   const initials=name.replace(/^КЦ\s+/,'').split(/\s+/).slice(0,2).map(word=>word[0]).join('').toUpperCase();
   const team=teams.get(name);
   const phone=typeof team?.phone==='string'&&/^\+[1-9]\d{1,14}$/.test(team.phone)?team.phone:null;
-  return {name,initials,description:name===COORDINATOR_TEAM?'Триаж и координация':name==='AutoClosedMi'?'Автоматическое закрытие':'Команда решения',phone,phoneIsTest:!!phone&&team?.phoneIsTest!==false,active:active.length,overdue,soon,attention};
+  return {name,initials,description:name===COORDINATOR_TEAM?'Триаж и координация':name==='AutoClosedMi'?'Автоматическое закрытие':'Команда решения',phone,active:active.length,overdue,soon,attention};
  }).sort((a,b)=>Number(b.name===COORDINATOR_TEAM)-Number(a.name===COORDINATOR_TEAM)||a.name.localeCompare(b.name,'ru'));
 }
 export function selectTeams(cards:ReturnType<typeof teamDirectory>,search:string,filter:TeamFilter){

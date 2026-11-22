@@ -36,7 +36,7 @@ export function IncidentDetail({item, now, onBack, owner, refresh, onExpired}: {
   const team = item.assignedGroupName?.trim();
   const number = item.teamPhone?.trim();
   const phone = team && number && /^\+[1-9][0-9]{1,14}$/.test(number) ? number : null;
-  const telephone = phone && item.teamPhoneIsTest === false ? `tel:${phone}` : null;
+  const telephone = phone ? `tel:${phone}` : null;
   const canContact = team && team !== COORDINATOR_TEAM && team !== 'AutoClosedMi';
   const systemFacts = [
     ['Продукт', item.productName], ['Сервис', item.service], ['Сценарий использования', item.scenarioName],
@@ -77,7 +77,7 @@ export function IncidentDetail({item, now, onBack, owner, refresh, onExpired}: {
             <div>
               <dt>Команда</dt>
               <dd className="mobile-detail-team">
-                <span>{team || 'Не назначена'}{team && <small>{telephone ? phone : item.teamPhoneIsTest === true && phone ? `Тестовый номер ${phone}` : 'Номер не указан'}</small>}</span>
+                <span>{team || 'Не назначена'}{team && <small>{phone ?? 'Номер не указан'}</small>}</span>
               </dd>
             </div>
             {item.assignedEmployee && <div><dt>Исполнитель</dt><dd>{item.assignedEmployee}</dd></div>}

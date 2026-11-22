@@ -18,18 +18,18 @@ test('directory preserves idle teams and coordinator role without invented conta
  assert.equal(cards.find(c=>c.name==='Пустая команда').active,0);assert.ok(cards.every(c=>c.phone===null));
  assert.equal(selectTeams(cards,'пустая','idle').length,1);assert.equal(selectTeams(cards,'пустая','attention').length,0);
 });
-test('directory preserves the server phone and marks synthetic or unverified numbers as test',()=>{
+test('directory preserves valid server phones regardless of test metadata',()=>{
  const cards=teamDirectory([item('1')],[
   {name:'Команда A',phone:'+12025550101',phoneIsTest:false},
   {name:'Команда B',phone:'+78193897280',phoneIsTest:true},
   {name:'Неизвестный источник',phone:'+12025550102'},
   {name:'Некорректный номер',phone:'javascript:alert(1)',phoneIsTest:false},
  ],now);
- const phoneByName=new Map(cards.map(({name,phone,phoneIsTest})=>[name,{phone,phoneIsTest}]));
- assert.deepEqual(phoneByName.get('Команда A'),{phone:'+12025550101',phoneIsTest:false});
- assert.deepEqual(phoneByName.get('Команда B'),{phone:'+78193897280',phoneIsTest:true});
- assert.equal(phoneByName.get('Неизвестный источник').phoneIsTest,true);
- assert.equal(phoneByName.get('Некорректный номер').phone,null);
+ const phoneByName=new Map(cards.map(({name,phone})=>[name,phone]));
+ assert.equal(phoneByName.get('Команда A'),'+12025550101');
+ assert.equal(phoneByName.get('Команда B'),'+78193897280');
+ assert.equal(phoneByName.get('Неизвестный источник'),'+12025550102');
+ assert.equal(phoneByName.get('Некорректный номер'),null);
 });
 test('team search composes with live late and expiring filters after an SSE replacement',()=>{
  const a=item('A',{deadline:new Date(now-1).toISOString()}),b=item('B',{assignedGroupName:'Команда B',deadline:new Date(now+10*60_000).toISOString()});

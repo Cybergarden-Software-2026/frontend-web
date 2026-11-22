@@ -120,7 +120,6 @@
 .mobile-team-contact .button { min-height: 44px; padding: 8px 12px; }
 .mobile-team-contact .button svg { color: var(--red); }
 .mobile-team-contact .button:hover { background: #fff0f3; }
-.mobile-team-contact [role="status"] { color: #206650; font-size: 13px; }
 .mobile-team-call-dialog {
   width: min(380px, calc(100% - 32px));
   padding: 20px;
