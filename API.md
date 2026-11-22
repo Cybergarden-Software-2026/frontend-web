@@ -25,12 +25,12 @@ Status reflects the committed implementation in the owning repository. Productio
 | `GET /api/v1/notifications` and `PUT /api/v1/notifications/{notification_id}/read` | `backend` | Implemented |
 | `GET /api/v1/openapi.json`, `GET /api/docs`, `GET /redoc`, and `GET /docs/oauth2-redirect` | `backend` | Implemented |
 | `GET /health` and `GET /health/ready` | `backend` | Implemented |
-| Live shift assignments, coordination KPI and intervals between team assignments via `GET /api/v1/statistics/shift` | `backend` | Implemented |
+| Shift assignments, coordination KPI and intervals between team assignments via `GET /api/v1/statistics/shift`, scoped to the signed-in coordinator in accounts mode | `backend` | Implemented |
 | Separate chart for the time between team assignments | `frontend-web` | Implemented |
 | Shared mass-problem membership and exclusions via `GET/PATCH /api/v1/problems/clusters` | `backend` | Implemented |
 | LLM review of automatic mass-problem groups (title and reason in `GET/PATCH /api/v1/problems/clusters`) | `backend` | Implemented (verified with a mock model; enabled per deployment) |
 | Shift PDF/Excel export and sequential group assignment | `frontend-web` | Implemented |
-| Atomic bulk team assignment and per-coordinator shift statistics | `backend` | Not implemented |
+| Atomic bulk team assignment | `backend` | Not implemented |
 | Same-origin `/api` proxy and `GET /healthz` | `frontend-web` | Implemented |
 | `POST /api/v1/demo` and `PUT /api/v1/incidents` | `backend` | Implemented (isolated demo only) |
 
@@ -380,11 +380,13 @@ curl -fsSG "$API/statistics/shift" \
           reassignments: ([.transfers[] | select(.reassignmentMs != null)] | length)}'
 ```
 
-The response has `source: "api"`, the shift label in `coordinator`, `start`, `end`, `transferred`, `critical`, `averageMs`, `measured`, `kpiMet`, `kpiPercent`, and `transfers`. Each transfer includes the event ID, incident ID, title, team, priority, and assignment time. Timestamps and durations use milliseconds. Waiting start, duration and KPI are `null` when historical data cannot establish a wait. KPI means assignment strictly earlier than 10 minutes after waiting began. Unknown durations do not affect the mean or denominator. The figures are shared for the shift.
+In accounts mode the server selects the coordinator from the session cookie. The result includes only assignments by that account and returns the login and display name in `coordinator.id` and `coordinator.name`. New assignment events identify the authenticated account explicitly. Older assignments are attributed using the recorded actor when it matches the login and differs from the configured shared actor (`DEFAULT_USER_ID`). Shared-key and open modes return shift-wide statistics with `coordinator.id: "shift"`.
+
+The response has `source: "api"`, the profile or shift label in `coordinator`, `start`, `end`, `transferred`, `critical`, `averageMs`, `measured`, `kpiMet`, `kpiPercent`, and `transfers`. Each transfer includes the event ID, the report’s `coordinatorId`, incident ID, title, team, priority, and assignment time. Timestamps and durations use milliseconds. Waiting start, duration and KPI are `null` when historical data cannot establish a wait. KPI means assignment strictly earlier than 10 minutes after waiting began. Unknown durations do not affect the mean or denominator.
 
 Each transfer also has `reassignmentMs` (integer or `null`). It measures the milliseconds from `previous.lastAssignmentToTeamDateTime` to the recorded dashboard assignment when moving between two different resolution teams. Coordinator, unassigned and technical groups are excluded. A missing, invalid or later previous timestamp yields `null`. The field is displayed in a separate chart. `measured`, `averageMs`, `kpiMet` and `kpiPercent` continue to use coordination wait durations.
 
-The web client combines the shift response with live queue numbers calculated from the snapshot and available event history. The shift view includes charts and a PDF/Excel export.
+The web Analytics view uses this response for assignment indicators, charts and PDF/Excel exports. The separately labeled shared queue uses the snapshot and available event history.
 
 ## Team directory presentation (frontend-web)
 
