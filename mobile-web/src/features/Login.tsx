@@ -10,7 +10,7 @@ export function Login({onLogin,notice}:{onLogin:(code:string)=>Promise<void>;not
  {(error||notice)&&<p className="error" role="alert">{error||notice}</p>}
  <button className="button primary" disabled={pending} onClick={()=>setCamera(true)}>{pending?<Spinner/>:<Icon name="grid"/>}{pending?'Подключаем…':'Сканировать QR-код'}</button>
  <button className="text-button manual" disabled={pending} onClick={()=>setManual(v=>!v)}>{manual?'Скрыть ввод кода':'Ввести код вручную'}</button>
- {manual&&<form className="manual-form" onSubmit={e=>{e.preventDefault();void enter(code)}}><label htmlFor="pairing-code">Полный текст QR-кода</label><input id="pairing-code" type="password" autoComplete="off" spellCheck={false} value={code} onChange={e=>setCode(e.target.value)} disabled={pending} required/><button className="button outline" disabled={!code.trim()||pending}>Подключить</button></form>}
+ {manual&&<form className="manual-form" onSubmit={e=>{e.preventDefault();void enter(code.trim())}}><label htmlFor="pairing-code">Код для ручного входа</label><p>На основном сайте откройте «Код для ручного входа» под QR и скопируйте его полностью.</p><textarea id="pairing-code" autoFocus autoComplete="off" autoCapitalize="none" spellCheck={false} rows={3} value={code} onChange={e=>setCode(e.target.value)} disabled={pending} required/><button className="button outline" disabled={!code.trim()||pending}>Подключить</button></form>}
  <div className="login-security"><Icon name="phone" size={17}/><span>Повторный вход не нужен, пока устройство подключено к аккаунту.</span></div>
- </section>{camera&&<QrScanner onClose={()=>setCamera(false)} onCode={raw=>void enter(raw)}/>}</main>;
+ </section>{camera&&<QrScanner onClose={()=>setCamera(false)} onManual={()=>{setCamera(false);setManual(true)}} onCode={raw=>void enter(raw)}/>}</main>;
 }
