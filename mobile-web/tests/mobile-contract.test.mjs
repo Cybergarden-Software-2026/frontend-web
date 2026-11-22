@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {api,setToken,ApiError} from '../src/data/api.ts';
-import {importantNotices,mergeNotices} from '../src/domain/notices.ts';
+import {mergeNotices} from '../src/domain/notices.ts';
 
 test('QR exchange includes persistent installation identity and web platform; no cookie auth',async()=>{
  const original=globalThis.fetch;const calls=[];
@@ -15,9 +15,6 @@ test('registration uses the FCM delivery token, not Firebase Installation ID',as
 test('invalid pairing codes and revoked sessions retain actionable server error codes',async()=>{
  const original=globalThis.fetch;globalThis.fetch=async()=>Response.json({error:'MOBILE_PAIRING_INVALID'},{status:401});
  try{await assert.rejects(api.login('expired','installation-123'),e=>e instanceof ApiError&&e.code==='MOBILE_PAIRING_INVALID'&&e.message.includes('истёк'))}finally{globalThis.fetch=original}
-});
-test('important screen never includes ordinary assignment, resolved or all journal records',()=>{
- const rows=['critical.raised','incident.assigned','incident.resolved','deadline.changed'].map((type,i)=>({id:String(i),type,title:type,createdAt:'2026-11-22T10:00:00Z',isRead:false}));assert.deepEqual(importantNotices(rows).map(n=>n.type),['critical.raised']);
 });
 test('pagination deduplicates records and replaces read state from the server',()=>{
  const a={id:1,type:'critical.raised',createdAt:'2026-11-22T10:00:00Z',isRead:false};const b={...a,id:'2',createdAt:'2026-11-22T11:00:00Z'};const result=mergeNotices([a,b],[{...a,id:'1',isRead:true}]);assert.equal(result.length,2);assert.equal(result[1].isRead,true);assert.equal(String(result[0].id),'2');

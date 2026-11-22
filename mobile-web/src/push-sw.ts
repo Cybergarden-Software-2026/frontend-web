@@ -19,20 +19,31 @@ self.addEventListener('notificationclick',event=>{
   return self.clients.openWindow(url.href);
  }));
 });
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(__PRECACHE__))));
-self.addEventListener('activate',event=>event.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('underctrl-mobile-'+ROOT.replace(/\W/g,'_')+'-')&&k!==CACHE).map(k=>caches.delete(k))))])));
+self.addEventListener('install',event=>{
+ // One missing asset or unavailable Cache Storage must not block push registration.
+ const precache=caches.open(CACHE).then(cache=>Promise.allSettled(__PRECACHE__.map(path=>cache.add(path))));
+ event.waitUntil(precache.catch(()=>{}));
+});
+self.addEventListener('activate',event=>{
+ const cleanup=caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('underctrl-mobile-'+ROOT.replace(/\W/g,'_')+'-')&&key!==CACHE).map(key=>caches.delete(key))));
+ event.waitUntil(Promise.all([self.clients.claim(),cleanup.catch(()=>{})]));
+});
 self.addEventListener('fetch',event=>{
  const url=new URL(event.request.url);if(event.request.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/api/'))return;
- if(event.request.mode==='navigate'&&url.pathname.startsWith(ROOT))event.respondWith(fetch(event.request).catch(async()=>await caches.match(ROOT+'index.html')||Response.error()));
- else if(__PRECACHE__.includes(url.pathname))event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request)));
+ if(event.request.mode==='navigate'&&url.pathname.startsWith(ROOT))event.respondWith(fetch(event.request).catch(async()=>await caches.match(ROOT+'index.html').catch(()=>undefined)||Response.error()));
+ else if(__PRECACHE__.includes(url.pathname))event.respondWith(caches.match(event.request).catch(()=>undefined).then(cached=>cached||fetch(event.request)));
 });
 if(firebaseConfig.apiKey&&firebaseConfig.appId){
  onBackgroundMessage(getMessaging(initializeApp(firebaseConfig)),async payload=>{
-  // The Rust backend sends webpush.notification: Firebase displays it automatically.
-  // Rendering it again here would create duplicates. Only handle data-only fallback.
-  if(payload.notification||payload.data?.type!=='critical.raised')return;
-  if(!await loadSession())return;
+  // Firebase already displays notification payloads. The sender decides which events to send.
   const data=payload.data;
-  await self.registration.showNotification(data.title||'Критический сбой',{body:data.body||'Поступило важное событие',icon:ROOT+'icons/icon-192.png',tag:data.notificationId||'underctrl-critical',data:{notificationId:data.notificationId,sysId:data.sysId}});
+  if(payload.notification||!data)return;
+  if(!await loadSession())return;
+  await self.registration.showNotification(data.title||'Важный инцидент',{
+   body:data.body||'Поступило важное событие',
+   icon:ROOT+'icons/icon-192.png',
+   tag:data.notificationId,
+   data:{notificationId:data.notificationId,sysId:data.sysId},
+  });
  });
 }
