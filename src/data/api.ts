@@ -53,6 +53,18 @@ export interface CoordinatorIdentity {
   displayName: string;
 }
 
+export interface MobilePairing {
+  code: string;
+  expiresAt: string;
+}
+
+export interface MobileDevice {
+  deviceId: string;
+  platform: 'android' | 'web';
+  createdAt: string;
+  pushEnabled: boolean;
+}
+
 export interface CoordinatorSession {
   required: boolean;
   authenticated: boolean;
@@ -103,6 +115,13 @@ async function eventPage(path: string, limit: number, beforeId?: string, signal?
 }
 
 export const api = {
+  createMobilePairing: (signal: AbortSignal) =>
+    request<MobilePairing>('/mobile/pairings', { method: 'POST', signal }),
+  mobileDevices: (signal: AbortSignal) =>
+    request<{ items: MobileDevice[] }>('/mobile/devices', { signal }),
+  async removeMobileDevice(deviceId: string, signal: AbortSignal) {
+    await responseFor('/mobile/devices/' + encodeURIComponent(deviceId), { method: 'DELETE', signal });
+  },
   coordinatorSession: (signal?: AbortSignal) => coordinatorSession({ signal }),
   async signInCoordinator(credentials: CoordinatorCredentials, signal?: AbortSignal) {
     const session = await coordinatorSession({ method: 'POST', body: JSON.stringify(credentials), signal });

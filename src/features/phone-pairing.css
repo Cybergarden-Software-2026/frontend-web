@@ -1,0 +1,23 @@
+.phone-pairing-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--surface-alt);
+  color: var(--primary);
+  font: inherit;
+  font-size: 13px;
+}
+.phone-pairing-trigger:hover { background: var(--primary-tint); }
+.phone-pairing-dialog { max-width: min(420px, 94vw); }
+.phone-pairing-code, .phone-pairing-retry { display: grid; gap: 12px; justify-items: center; text-align: center; }
+.phone-pairing-code svg { max-width: 100%; height: auto; }
+.phone-pairing-dialog small { color: var(--soft); font-size: .75rem; }
+.phone-pairing-devices { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
+.phone-pairing-devices h3 { font-size: .95rem; }
+.phone-pairing-devices ul { list-style: none; padding: 0; }
+.phone-pairing-devices li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.phone-pairing-devices small { display: block; margin-top: 4px; }

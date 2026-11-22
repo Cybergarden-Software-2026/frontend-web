@@ -63,3 +63,13 @@ sudo systemctl stop underctrl-frontend-deploy.timer underctrl-frontend-deploy.se
 Сначала выпустите backend с миграцией PostgreSQL. После проверки `/api/v1/statistics/shift` и `/api/v1/problems/clusters` обновите frontend. Существующий прокси `/api/` обслуживает оба новых маршрута.
 
 Проверки GitHub Actions запускаются для push и pull request в `main`.
+
+## Мобильное веб-приложение
+
+Отдельная PWA находится в `mobile-web/` и публикуется по **`/mobile/`** в том же Docker-образе. У неё свои зависимости, сборка, manifest и service worker со scope `/mobile/`; существующий `/api` проксирует мобильный Bearer в Rust API.
+
+Для входа откройте `/mobile/` на телефоне и отсканируйте QR из кнопки **«Подключить телефон»** над профилем координатора в кабинете. На iPhone сначала добавьте PWA на экран «Домой» через Safari и откройте её с иконки, затем включите уведомления в настройках приложения.
+
+Docker и CI устанавливают зависимости, запускают тесты и собирают оба приложения. Изменения в `main` публикуются существующим таймером vserver. Дополнительный сервис или внешний адрес API не нужны. Фоновые push текущего backend отправляются только для `critical.raised`; остальные две категории хедера видны внутри приложения.
+
+Локальная работа: `cd mobile-web && pnpm install --frozen-lockfile && pnpm dev`. Проверки: `pnpm test`, `APP_BASE_PATH=/mobile/ pnpm build`. [Контракт и устройство PWA](mobile-web/README.md).
