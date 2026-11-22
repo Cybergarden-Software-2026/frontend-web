@@ -1,0 +1,65 @@
+.workspace.incident-workspace {
+ padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+.workspace-actions {
+ display: flex;
+ align-items: center;
+ gap: 9px;
+}
+.workspace-action {
+ position: relative;
+ display: grid;
+ place-items: center;
+ width: 44px;
+ height: 44px;
+ padding: 0;
+ border: 1px solid #e4d8eb;
+ border-radius: 13px;
+ background: #fff;
+ color: var(--purple);
+}
+.workspace-action:active {
+ background: #f4eefb;
+}
+.workspace-exit {
+ color: #60556f;
+}
+.workspace-push-check {
+ position: absolute;
+ display: grid;
+ place-items: center;
+ right: 1px;
+ bottom: 2px;
+ width: 16px;
+ height: 16px;
+ border: 2px solid #fff;
+ border-radius: 50%;
+ background: #1e6750;
+ color: #fff;
+}
+.workspace-status {
+ display: flex;
+ align-items: center;
+ gap: 10px;
+ padding: 8px 9px 8px 13px;
+ border: 1px solid #e5d9ed;
+ border-radius: 14px;
+ background: #fff;
+ color: #615373;
+ font-size: 13px;
+ line-height: 1.45;
+}
+.workspace-status > span {
+ flex: 1;
+}
+.workspace-status > button {
+ display: grid;
+ place-items: center;
+ width: 36px;
+ height: 36px;
+ padding: 0;
+ border-radius: 10px;
+ background: #f5effa;
+ color: var(--purple);
+ flex: none;
+}

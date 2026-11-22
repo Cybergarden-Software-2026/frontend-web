@@ -11,8 +11,7 @@ const ROOT=import.meta.env.BASE_URL,CACHE='underctrl-mobile-'+ROOT.replace(/\W/g
 self.addEventListener('notificationclick',event=>{
  event.stopImmediatePropagation();event.notification.close();
  const data=event.notification.data?.FCM_MSG?.data||event.notification.data||{};
- const id=data.notificationId;
- const route=data.sysId?'#incident/'+encodeURIComponent(String(data.sysId)):id?'#notice/'+encodeURIComponent(String(id)):'#journal';
+ const route=data.sysId?'#incident/'+encodeURIComponent(String(data.sysId)):'#alerts';
  const url=new URL(ROOT+route,self.location.origin);
  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async clients=>{
   const own=clients.find(c=>new URL(c.url).origin===url.origin&&new URL(c.url).pathname.startsWith(ROOT));
@@ -34,6 +33,6 @@ if(firebaseConfig.apiKey&&firebaseConfig.appId){
   if(payload.notification||payload.data?.type!=='critical.raised')return;
   if(!await loadSession())return;
   const data=payload.data;
-  await self.registration.showNotification(data.title||'Критический сбой',{body:data.body||'Поступило важное событие',icon:ROOT+'icons/icon-192.png',tag:data.notificationId||'underctrl-critical',data:{notificationId:data.notificationId}});
+  await self.registration.showNotification(data.title||'Критический сбой',{body:data.body||'Поступило важное событие',icon:ROOT+'icons/icon-192.png',tag:data.notificationId||'underctrl-critical',data:{notificationId:data.notificationId,sysId:data.sysId}});
  });
 }
