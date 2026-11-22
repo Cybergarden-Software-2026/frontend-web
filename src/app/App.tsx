@@ -4,7 +4,6 @@ import { useMassClusters } from '../data/useMassClusters';
 import { useAlertSignal } from '../data/useAlertSignal';
 import { api } from '../data/api';
 import type { CoordinatorIdentity } from '../data/api';
-import { EVENT_READ_KEY as readKey } from '../data/workspaceSessionCache';
 import { Icon } from '../components/Icon';
 import { ConnectionNotice } from '../components/ConnectionNotice';
 import { ProblemClusters } from '../features/ProblemClusters';
@@ -39,7 +38,6 @@ export function App({ sessionRequired, coordinator, onSignOut }: AppProps) {
  const [demoOpen,setDemoOpen]=useState(false),[busy,setBusy]=useState<string|null>(null),[actionError,setActionError]=useState<string|null>(null);
  const [signingOut,setSigningOut]=useState(false);
  const [now,setNow]=useState(Date.now());
- const [lastRead,setLastRead]=useState(()=>{try{return Number(localStorage.getItem(readKey)??0);}catch{return 0;}});
  const uploadRef=useRef<HTMLInputElement>(null);
  const [assignId,setAssignId]=useState<string|null>(null),[teamContext,setTeamContext]=useState<{name:string;token:number}|null>(null);
  const assignment=items.find(i=>i.sysId===assignId);
@@ -66,17 +64,7 @@ export function App({ sessionRequired, coordinator, onSignOut }: AppProps) {
  useEffect(()=>{const id=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(id);},[]);
  const clock=now+data.clockOffset;
  const {sequence:signalSequence,audioStatus}=useAlertSignal(items,clock,Boolean(snapshot));
- const events=snapshot?.events??[],latest=events[0]?.eventId??0,unread=events.filter(e=>e.eventId>lastRead).length;
- const readEpoch=useRef(historyEpoch);
- function markRead(){setLastRead(latest);try{localStorage.setItem(readKey,String(latest));}catch{}}
- useEffect(()=>{
-  if(!connected||!snapshot)return;
-  if(readEpoch.current!==historyEpoch||lastRead>latest){
-   readEpoch.current=historyEpoch;
-   setLastRead(0);
-   try{localStorage.setItem(readKey,'0');}catch{}
-  }
- },[connected,snapshot,latest,lastRead,historyEpoch]);
+ const events=snapshot?.events??[];
  async function signOut(){
   if(!onSignOut||signingOut)return;
   setSigningOut(true);
@@ -88,13 +76,13 @@ export function App({ sessionRequired, coordinator, onSignOut }: AppProps) {
  function selectTeam(name:string){setTeamContext({name,token:Date.now()});navigate('incidents');}
  async function simulate(action:string){setBusy(action);setActionError(null);try{data.accept(await api.simulate(action));if(action!=='reset')setDemoOpen(false);}catch(e){setActionError(e instanceof Error?e.message:'Не удалось выполнить сценарий');}finally{setBusy(null);}}
  async function importFile(file:File){setBusy('import');setActionError(null);try{const value=JSON.parse(await file.text());data.accept(await api.import(value));}catch(e){setActionError(e instanceof Error?e.message:'Ошибка импорта');}finally{setBusy(null);if(uploadRef.current)uploadRef.current.value='';}}
- return <div className={`app page-${page} ${detailId?'page-incident-detail':''}`}><a className="skip-link" href="#main" onClick={e=>{e.preventDefault();document.getElementById('main')?.focus();}}>К содержанию</a><aside className="sidebar"><a className="brand" href="#incidents" aria-label="UnderCtrl — очередь инцидентов"><img src="/mark.svg" width="38" height="38" alt=""/><span>Under<span className="brand-accent">Ctrl</span><small>Координация IT</small></span></a><nav aria-label="Основное меню"><p className="nav-caption">РАБОЧАЯ ОБЛАСТЬ</p>{pages.map(link=><a key={link.id} className={`nav-item ${page===link.id?'selected':''}`} aria-current={page===link.id?'page':undefined} href={'#'+link.id}><Icon name={link.icon}/><span>{link.label}</span>{link.id==='events'&&unread>0&&<span className="nav-count">{unread}</span>}{link.id==='problems'&&clusters.length>0&&<span className="nav-count">{clusters.length}</span>}</a>)}</nav>{coordinator && <PhonePairing key={coordinator.login}/>}<div className="sidebar-bottom">{onSignOut&&<button type="button" className="sidebar-signout" disabled={signingOut} onClick={()=>void signOut()}><Icon name="logout" size={17}/>{signingOut?'Выходим…':'Выйти'}</button>}</div></aside>
+ return <div className={`app page-${page} ${detailId?'page-incident-detail':''}`}><a className="skip-link" href="#main" onClick={e=>{e.preventDefault();document.getElementById('main')?.focus();}}>К содержанию</a><aside className="sidebar"><a className="brand" href="#incidents" aria-label="UnderCtrl — очередь инцидентов"><img src="/mark.svg" width="38" height="38" alt=""/><span>Under<span className="brand-accent">Ctrl</span><small>Координация IT</small></span></a><nav aria-label="Основное меню"><p className="nav-caption">РАБОЧАЯ ОБЛАСТЬ</p>{pages.map(link=><a key={link.id} className={`nav-item ${page===link.id?'selected':''}`} aria-current={page===link.id?'page':undefined} href={'#'+link.id}><Icon name={link.icon}/><span>{link.label}</span>{link.id==='problems'&&clusters.length>0&&<span className="nav-count">{clusters.length}</span>}</a>)}</nav>{coordinator && <PhonePairing key={coordinator.login}/>}<div className="sidebar-bottom">{onSignOut&&<button type="button" className="sidebar-signout" disabled={signingOut} onClick={()=>void signOut()}><Icon name="logout" size={17}/>{signingOut?'Выходим…':'Выйти'}</button>}</div></aside>
  <div className="workspace" ref={workspaceRef}>
  <main className="main" id="main" tabIndex={-1}>{(!online||checked&&!connected)&&<ConnectionNotice online={online} snapshot={snapshot} loading={loading} onRetry={refresh}/>}{snapshot?.source.error&&<div className="notice notice-warning" role="alert"><Icon name="alert"/><div><strong>Источник данных не обновляется</strong><p>{snapshot.source.error}. Предыдущий корректный снимок сохранён.</p></div></div>}{actionError&&<div className="notice notice-warning" role="alert"><Icon name="alert"/><p>{actionError}</p><button className="icon-button" aria-label="Скрыть сообщение" onClick={()=>setActionError(null)}><Icon name="close"/></button></div>}
- <AlertHeader items={items} now={clock} onOpen={openIncident} onJournal={()=>navigate('events')} unread={unread} signalSequence={signalSequence} audioStatus={audioStatus}/>
+ <AlertHeader items={items} now={clock} onOpen={openIncident} onJournal={()=>navigate('events')} signalSequence={signalSequence} audioStatus={audioStatus}/>
  <div className="screen-content" hidden={Boolean(detailId)}>
  {page==='incidents'&&<IncidentDashboard snapshot={snapshot} now={clock} connected={connected} loading={loading} onOpen={openIncident} onAssign={setAssignId} teamContext={teamContext}/>}
- {page==='events'&&<EventsJournal events={events} now={clock} loading={loading} connected={connected} onOpen={openIncident} historyEpoch={historyEpoch} unread={unread} onMarkRead={markRead}/>}
+ {page==='events'&&<EventsJournal events={events} now={clock} loading={loading} connected={connected} onOpen={openIncident} historyEpoch={historyEpoch}/>}
  {page==='teams'&&<TeamsDirectory items={items} now={clock} revision={snapshot?.revision??0} connected={connected} loading={loading} onTeam={selectTeam} onOpen={openIncident}/>}
   {page==='problems'&&<ProblemClusters workspace={massWorkspace} snapshot={snapshot} connected={connected} onOpen={openIncident} onAccept={data.accept}/>}
  {page==='analytics'&&<Analytics snapshot={snapshot} now={clock} connected={connected} loading={loading} historyEpoch={historyEpoch}/>}

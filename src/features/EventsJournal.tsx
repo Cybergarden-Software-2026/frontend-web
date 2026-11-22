@@ -8,7 +8,7 @@ import { useEventHistory } from '../data/useEventHistory';
 
 const timeFormat=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit',second:'2-digit'});
 const dayFormat=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'long'});
-export function EventsJournal({events,now,loading,connected,historyEpoch,unread,onMarkRead,onOpen}:{events:ChangeEvent[];now:number;loading:boolean;connected:boolean;historyEpoch:number;unread:number;onMarkRead:()=>void;onOpen:(sysId:string)=>void}) {
+export function EventsJournal({events,now,loading,connected,historyEpoch,onOpen}:{events:ChangeEvent[];now:number;loading:boolean;connected:boolean;historyEpoch:number;onOpen:(sysId:string)=>void}) {
  const [search,setSearch]=useState(''),[type,setType]=useState(''),[period,setPeriod]=useState('24h'),[page,setPage]=useState(1);
  const history=useEventHistory({period,connected,now,events,historyEpoch});
  const allEvents=useMemo(()=>[...history.archive,...events],[history.archive,events]);
@@ -18,7 +18,7 @@ export function EventsJournal({events,now,loading,connected,historyEpoch,unread,
  function reset(){setSearch('');setType('');setPeriod('24h');setPage(1);}
  function turn(next:number){setPage(next);document.getElementById('journal-title')?.focus({preventScroll:true});}
  return <section className="surface events-journal" aria-labelledby="journal-title" aria-busy={history.loading||loading&&!allEvents.length}>
-  <header className="journal-heading"><h1 id="journal-title" tabIndex={-1}>Журнал событий</h1><button className="button secondary" type="button" disabled={!unread} onClick={onMarkRead}><Icon name="check" size={16}/>Отметить прочитанными</button></header>
+  <header className="journal-heading"><h1 id="journal-title" tabIndex={-1}>Журнал событий</h1></header>
   <div className="journal-filters">
    <label className="journal-search"><Icon name="search" size={16}/><input type="search" aria-label="Найти инцидент в журнале" placeholder="Найти инцидент" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/></label>
    <FilterSelect label="Тип события" value={type} options={[{id:'',label:'Все типы'},...JOURNAL_TYPES]} onChange={value=>{setType(value);setPage(1);}}/>

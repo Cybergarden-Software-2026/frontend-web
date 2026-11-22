@@ -156,7 +156,7 @@ function Detail({ item, snapshot, revision, online, now, onBack, backLabel, onAs
    <div className="incident-detail-main">
     <nav className="incident-detail-toolbar" aria-label="Действия инцидента">
      <button className="button secondary detail-back" onClick={onBack}><Icon name="left" size={16}/>{backLabel}</button>
-     <button className={`button detail-ai-toggle ${aiOpen ? 'selected' : ''}`} aria-expanded={aiOpen} aria-controls="incident-assistant" onClick={() => setAiOpen(value => !value)}>Помощь ИИ<Icon name="spark" size={16}/></button>
+     <button className={`button detail-outline-action detail-ai-toggle ${aiOpen ? 'selected' : ''}`} aria-expanded={aiOpen} aria-controls="incident-assistant" onClick={() => setAiOpen(value => !value)}>Помощь ИИ<Icon name="spark" size={16}/></button>
     </nav>
     <header className="surface incident-summary">
      <h1 id="incident-title" tabIndex={-1}>{item.header || 'Инцидент без заголовка'}</h1>
@@ -195,7 +195,7 @@ function Detail({ item, snapshot, revision, online, now, onBack, backLabel, onAs
     </section>
     <section className="surface detail-card incident-owner"><h2>Ответственные</h2>
      <dl className="detail-table"><DetailRow label="Команда" value={item.assignedGroupName} empty="Не назначена"/><DetailRow label="Исполнитель" value={item.assignedEmployee} empty="Не назначен"/><DetailRow label="Логин исполнителя" value={item.assignedEmployeeLogin}/><DetailRow label="Назначение команде" value={detailDate(item.lastAssignmentToTeamDateTime)}/></dl>
-     {onAssign && canAssign(item) && <button className="button secondary detail-assign" onClick={onAssign}><Icon name="userPlus" size={16}/>Назначить / сменить команду</button>}
+     {onAssign && canAssign(item) && <button className="button detail-outline-action detail-assign" onClick={onAssign}><Icon name="userPlus" size={16}/>Назначить / сменить команду</button>}
     </section>
     <IncidentHistory item={item} snapshot={snapshot} revision={revision} online={online}/>
    </aside>
