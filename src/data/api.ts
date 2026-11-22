@@ -150,7 +150,8 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ ...edit, expectedRevision }),
     }),
-  analysis: (id: string) => request<Analysis>(`/incidents/${encodeURIComponent(id)}/analysis`),
+  analysis: (id: string, signal?: AbortSignal) =>
+    request<Analysis>(`/incidents/${encodeURIComponent(id)}/analysis`, { signal }),
   simulate: (action: string) => snapshotRequest('/demo', { method: 'POST', body: JSON.stringify({ action }) }),
   import: (items: unknown) => snapshotRequest('/incidents', { method: 'PUT', body: JSON.stringify(items) }),
 };
