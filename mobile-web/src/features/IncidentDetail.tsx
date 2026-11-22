@@ -1,8 +1,9 @@
 import {Icon} from '../components/Icon.tsx';
 import {countdown} from '../domain/alerts.ts';
 import {displaySlaKind} from '../domain/deadlineDisplay.ts';
-import {COORDINATOR_TEAM, STATES, stateOf, timestamp} from '../domain/incidents.ts';
+import {belongs, COORDINATOR_TEAM, STATES, stateOf, timestamp} from '../domain/incidents.ts';
 import {mobileIncident, type MobileIncident} from '../domain/mobileIncidents.ts';
+import {CoordinationClaimAction} from './CoordinationClaimAction.tsx';
 import {TeamContactAction} from './TeamContactAction.tsx';
 import './incident-detail.css';
 
@@ -20,8 +21,9 @@ function dateLabel(value: string | null): string {
   return time === null ? 'Не указано' : `${dateFormatter.format(time)} МСК`;
 }
 
-export function IncidentDetail({item, now, onBack, owner, refresh, onExpired}: {
+export function IncidentDetail({item, revision, now, onBack, owner, refresh, onExpired}: {
   item: MobileIncident;
+  revision: number;
   now: number;
   onBack: () => void;
   owner: string;
@@ -84,6 +86,9 @@ export function IncidentDetail({item, now, onBack, owner, refresh, onExpired}: {
             {item.assignedEmployeeLogin && <div><dt>Логин исполнителя</dt><dd>{item.assignedEmployeeLogin}</dd></div>}
             {item.lastAssignmentToTeamDateTime && <div><dt>Назначение команде</dt><dd>{dateLabel(item.lastAssignmentToTeamDateTime)}</dd></div>}
           </dl>
+          {item.coordinationClaim !== undefined && belongs(incident,'coordinators') && <CoordinationClaimAction
+            key={item.sysId} sysId={item.sysId} claim={item.coordinationClaim} revision={revision}
+            owner={owner} refresh={refresh} onExpired={onExpired}/>}
           {canContact && <TeamContactAction key={team} owner={owner} sysId={item.sysId} team={team} telephone={telephone} refresh={refresh} onExpired={onExpired}/>}
         </section>
       </div>

@@ -8,6 +8,11 @@ export const GROUPS = [
  { id: 'high', title: 'Высокий приоритет', hint: 'Требуют особого внимания', icon: 'bolt', tone: 'warning' },
  { id: 'research', title: 'Исследование', hint: 'Исследование ситуации', icon: 'search', tone: 'purple' },
 ] as const;
+export interface CoordinationClaim {
+ login: string;
+ displayName: string;
+ claimedAt: string;
+}
 export interface Incident {
  [key: string]: unknown;
  sysId: string; id: string; header: string; description: string; shortDescription?: string;
@@ -15,6 +20,7 @@ export interface Incident {
  stateId: number | null; stateEnum: string; state: string; stateReason?: string | null;
  priorityId: number; priority: string; urgencyId: number | null; urgency: string; impactId: number | null; impact: string;
  assignedGroupName: string; assignedEmployee?: string; assignedEmployeeLogin?: string;
+ coordinationClaim?: CoordinationClaim | null;
  submitDate: string; deadline: string | null; completionDate: string | null; lastAssignmentToTeamDateTime?: string | null;
  isNeedUp?: boolean | null; isDouble?: boolean; isMaster?: boolean; isEffect?: boolean; isReason?: boolean;
  solution?: string; serviceType?: string; receivingChannel?: string; initiatorName?: string; initiatorLogin?: string;

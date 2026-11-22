@@ -2,7 +2,7 @@ import { useEffect,useLayoutEffect,useState,useRef } from 'react';
 import { useIncidents } from '../data/useIncidents';
 import { useMassClusters } from '../data/useMassClusters';
 import { useAlertSignal } from '../data/useAlertSignal';
-import { api } from '../data/api';
+import { api, ApiError } from '../data/api';
 import type { CoordinatorIdentity } from '../data/api';
 import { Icon } from '../components/Icon';
 import { ConnectionNotice } from '../components/ConnectionNotice';
@@ -18,8 +18,14 @@ import { Analytics } from '../features/Analytics';
 import { IncidentDashboard } from '../features/IncidentDashboard';
 import { PhonePairing } from '../features/PhonePairing';
 import { AssignTeam } from '../features/AssignTeam';
+import type { CoordinationActions } from '../features/CoordinationControl';
 const pages:{id:Page;label:string;icon:string}[]=[{id:'incidents',label:'Инциденты',icon:'grid'},{id:'events',label:'События',icon:'pulse'},{id:'teams',label:'Команды',icon:'people'},{id:'analytics',label:'Аналитика',icon:'chart'},{id:'problems',label:'Массовые сбои',icon:'layers'}];
 const DEMO=import.meta.env.VITE_DEMO_API==='true';
+const coordinationErrors:Record<string,string>={
+ COORDINATION_ALREADY_CLAIMED:'Другой координатор уже взял инцидент в работу.',
+ COORDINATION_CLAIM_NOT_OWNED:'Освободить инцидент может только координатор, который взял его в работу.',
+ COORDINATION_CLAIM_UNAVAILABLE:'Инцидент больше недоступен для координации.',
+};
 interface AppProps {
  sessionRequired: boolean;
  coordinator?: CoordinatorIdentity;
@@ -41,6 +47,33 @@ export function App({ sessionRequired, coordinator, onSignOut }: AppProps) {
  const uploadRef=useRef<HTMLInputElement>(null);
  const [assignId,setAssignId]=useState<string|null>(null),[teamContext,setTeamContext]=useState<{name:string;token:number}|null>(null);
  const assignment=items.find(i=>i.sysId===assignId);
+ const pendingCoordination=useRef(new Set<string>());
+ const [coordinationPending,setCoordinationPending]=useState<ReadonlySet<string>>(new Set());
+ async function changeCoordination(sysId:string, claim:boolean){
+  const pending=pendingCoordination.current;
+  if(!coordinator||!connected||signingOut||pending.has(sysId))return;
+  pending.add(sysId);
+  setCoordinationPending(new Set(pending));
+  setActionError(null);
+  try{
+   await api.setCoordinationClaim(sysId,claim,AbortSignal.timeout(10_000));
+  }catch(error){
+   const fallback=claim ? 'Не удалось взять инцидент в работу. Попробуйте ещё раз.'
+    : 'Не удалось освободить инцидент. Попробуйте ещё раз.';
+   const message=error instanceof ApiError ? coordinationErrors[error.code??'']??error.message : fallback;
+   setActionError(message);
+  }finally{
+   await data.refreshAfterMutation();
+   pending.delete(sysId);
+   setCoordinationPending(new Set(pending));
+  }
+ }
+ const coordination:CoordinationActions={
+  login:coordinator?.login,
+  enabled:connected&&!signingOut,
+  pending:coordinationPending,
+  change:(sysId,claim)=>void changeCoordination(sysId,claim),
+ };
  function openIncident(id:string){
   if(!detailId){
    returnScroll.current=workspaceRef.current?.scrollTop??0;originFocus.current=document.activeElement as HTMLElement;
@@ -81,14 +114,14 @@ export function App({ sessionRequired, coordinator, onSignOut }: AppProps) {
  <main className="main" id="main" tabIndex={-1}>{(!online||checked&&!connected)&&<ConnectionNotice online={online} snapshot={snapshot} loading={loading} onRetry={refresh}/>}{snapshot?.source.error&&<div className="notice notice-warning" role="alert"><Icon name="alert"/><div><strong>Источник данных не обновляется</strong><p>{snapshot.source.error}. Предыдущий корректный снимок сохранён.</p></div></div>}{actionError&&<div className="notice notice-warning" role="alert"><Icon name="alert"/><p>{actionError}</p><button className="icon-button" aria-label="Скрыть сообщение" onClick={()=>setActionError(null)}><Icon name="close"/></button></div>}
  <AlertHeader items={items} now={clock} onOpen={openIncident} onJournal={()=>navigate('events')} signalSequence={signalSequence} audioStatus={audioStatus}/>
  <div className="screen-content" hidden={Boolean(detailId)}>
- {page==='incidents'&&<IncidentDashboard snapshot={snapshot} now={clock} connected={connected} loading={loading} onOpen={openIncident} onAssign={setAssignId} teamContext={teamContext}/>}
+ {page==='incidents'&&<IncidentDashboard snapshot={snapshot} now={clock} connected={connected} loading={loading} onOpen={openIncident} onAssign={setAssignId} teamContext={teamContext} coordination={coordination}/>}
  {page==='events'&&<EventsJournal events={events} now={clock} loading={loading} connected={connected} onOpen={openIncident} historyEpoch={historyEpoch}/>}
  {page==='teams'&&<TeamsDirectory items={items} now={clock} revision={snapshot?.revision??0} connected={connected} loading={loading} onTeam={selectTeam} onOpen={openIncident}/>}
   {page==='problems'&&<ProblemClusters workspace={massWorkspace} snapshot={snapshot} connected={connected} onOpen={openIncident} onAccept={data.accept}/>}
  {page==='analytics'&&<Analytics snapshot={snapshot} now={clock} connected={connected} loading={loading} historyEpoch={historyEpoch} coordinator={coordinator}/>}
  {page==='settings'&&<><PageHeading eyebrow="ПОДКЛЮЧЕНИЕ И ДАННЫЕ" title="Источник и настройки" text="Актуальность снимка и правила рабочего пространства"/><div className="settings-grid"><section className="surface settings-card"><h2><Icon name="layers"/>Источник инцидентов</h2><dl><div><dt>Подключение</dt><dd>{connected?'Активно':connecting?'Подключаемся…':'Недоступно'}</dd></div><div><dt>Версия снимка</dt><dd>{snapshot?.revision??'—'}</dd></div><div><dt>Последнее изменение</dt><dd>{snapshot?dateTime(snapshot.updatedAt):'—'}</dd></div><div><dt>Записей в снимке</dt><dd>{items.length}</dd></div><div><dt>Последнее чтение источника</dt><dd>{dateTime(snapshot?.source.readAt)}</dd></div></dl>{DEMO&&<><p className="muted">Измените файл в VS Code. Сервер автоматически передаст изменения на страницу.</p><code className="file-path">{snapshot?.source.path??'data/incidents.json'}</code><button className="button secondary" onClick={()=>uploadRef.current?.click()} disabled={busy==='import'}><Icon name="plus" size={17}/>{busy==='import'?'Загружаем…':'Импортировать JSON'}</button><input type="file" accept=".json,application/json" hidden ref={uploadRef} onChange={e=>{if(e.target.files?.[0])void importFile(e.target.files[0]);}}/><p className="caption">Импорт заменяет тестовый снимок целиком. Дубли идентификаторов и неверный формат отклоняются.</p></>}</section><section className="surface settings-card"><h2><Icon name="circleCheck"/>Статусы без путаницы</h2><div className="status-explainer"><strong>Завершён</strong><p>Проблема устранена. Если она сохраняется или повторяется, инцидент можно вернуть в работу.</p></div><div className="status-explainer"><strong>Закрыт</strong><p>Вся работа с инцидентом закончена.</p></div><div className="status-explainer"><strong>Исследование</strong><p>Идёт разбор причин. Инцидент остаётся в поле внимания, включая назначение координаторам.</p></div><div className="status-explainer solution-note"><strong>Описание решения</strong><p>Текст может быть заполнен заранее или описывать прошлую попытку, которая не помогла. Само поле solution не подтверждает устранение.</p></div></section><section className="surface settings-card"><h2><Icon name="spark"/>Помощник координатора</h2><p>В карточке нажмите «Помощь ИИ», чтобы узнать, что произошло, что уже сделали и каков текущий результат.</p><p className="muted">Пока ответ ИИ недоступен, сводка составляется из данных карточки.</p></section><section className="surface settings-card"><h2><Icon name="monitor"/>Рабочие переходы</h2><p>Переход в ITSM доступен из карточки после настройки ссылки на стороне API.</p><p className="muted">Часовой пояс: Москва (UTC+3). Критический приоритет: 4. Обновления не сбрасывают выбранные фильтры.</p><button className="button secondary" onClick={()=>void refresh()}><Icon name="sort" size={17}/>Проверить подключение</button></section></div></>}
  </div>
- {detailId&&<IncidentDetailPage key={detailId} incidentKey={detailId} snapshot={snapshot} online={online} now={clock} onBack={closeIncident} backLabel={backLabels[page]} onAssign={setAssignId}/>}
+ {detailId&&<IncidentDetailPage key={detailId} incidentKey={detailId} snapshot={snapshot} online={online} now={clock} onBack={closeIncident} backLabel={backLabels[page]} onAssign={setAssignId} coordination={coordination}/>}
  </main></div><nav className="bottom-nav" aria-label="Компактное меню">{pages.map(link=><a className={`nav-item ${page===link.id?'selected':''}`} key={link.id} href={'#'+link.id}><Icon name={link.icon}/><span>{link.label}</span></a>)}{onSignOut&&<button type="button" className="logout-mobile" aria-label="Выйти из аккаунта" disabled={signingOut} onClick={()=>void signOut()}><Icon name="logout" size={17}/></button>}</nav>
  {DEMO&&demoOpen&&<Dialog title="Проверка живых обновлений" onClose={()=>setDemoOpen(false)}><p className="muted">Каждый сценарий изменяет тестовый JSON через API. Список, группы и события обновляются на тех же данных.</p><div className="simulation-grid">{[['coordinator-wait','Ожидание у координатора','Без команды решения более 8 минут','clock'],['mass','Массовая проблема','Три связанных инцидента одного сервиса','layers'],['unassigned','Нет ответственной команды','Не распределён более 15 минут','people'],['critical','Критический инцидент','Приоритет 4 и дедлайн через 12 минут','alert'],['assign','Передать координаторам','Инцидент появится в соответствующей группе','people'],['deadline','Изменить дедлайн','Установить срок через 5 минут','clock'],['resolve','Устранить проблему','Статус «Завершён», возможен возврат','circleCheck'],['reopen','Вернуть в работу','Повторное открытие завершённого инцидента','pulse'],['research','Начать исследование','Исследование и назначение координаторам','search'],['close','Полностью закрыть','Вся работа с инцидентом окончена','check']].map(([action,title,description,icon])=><button key={action} className="simulation-choice" disabled={busy!==null} onClick={()=>void simulate(action)}><span className="event-icon tone-purple"><Icon name={icon}/></span><span><strong>{title}</strong><small>{description}</small></span></button>)}</div><button className="button secondary" disabled={busy!==null} onClick={()=>void simulate('reset')}>Восстановить исходные 44 записи</button><p className="caption">Сброс восстановит тестовый файл из seed.json. Прошлые события останутся в журнале.</p></Dialog>}
 

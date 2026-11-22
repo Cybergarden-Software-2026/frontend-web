@@ -86,6 +86,12 @@ export function useIncidents(persistSnapshot = true) {
   return request;
  }, [accept, updateConnection]);
 
+ const refreshAfterMutation = useCallback(async () => {
+  // A snapshot request started before the mutation may return the previous revision.
+  await pending.current?.request;
+  await refresh();
+ }, [refresh]);
+
  useEffect(() => {
   let stream: EventSource | null = null;
   function connect() {
@@ -158,5 +164,5 @@ export function useIncidents(persistSnapshot = true) {
   };
  }, [accept, refresh, updateConnection]);
 
- return { snapshot, connected, checked, online, loading, error, clockOffset, historyEpoch, refresh, accept };
+ return { snapshot, connected, checked, online, loading, error, clockOffset, historyEpoch, refresh, refreshAfterMutation, accept };
 }

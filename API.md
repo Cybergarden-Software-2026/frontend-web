@@ -21,6 +21,7 @@ Status reflects the committed implementation in the owning repository. Productio
 | `GET /api/v1/teams` and rules-based `GET /api/v1/incidents/{key}/analysis` | `backend` | Implemented |
 | LLM summary and team suggestion in `GET /api/v1/incidents/{key}/analysis` (`provider: "llm"`, background `ai-worker`, `LLM_ENABLED`) | `backend` | Implemented (verified with a mock model; enabled per deployment) |
 | `POST /api/v1/incidents/{sysId}/assignment` with revision checking | `backend` and `frontend-web` | Implemented |
+| Shared coordinator ownership via `PUT/DELETE /api/v1/incidents/{sysId}/coordination-claim` and the mobile equivalent | `backend` and `frontend-web` | Implemented (personal coordinator accounts) |
 | `GET /api/v1/events`, `GET /api/v1/events/stream`, and `GET /api/v1/incidents/{key}/events` | `backend` | Implemented |
 | `GET /api/v1/notifications` and `PUT /api/v1/notifications/{notification_id}/read` | `backend` | Implemented |
 | `GET /api/v1/openapi.json`, `GET /api/docs`, `GET /redoc`, and `GET /docs/oauth2-redirect` | `backend` | Implemented |
@@ -54,6 +55,7 @@ For a standard local Docker Compose deployment, the backend base URL is `http://
 | List available teams | `GET /teams` | Team names, phone numbers and active assignment counts |
 | View analysis | `GET /incidents/{key}/analysis` | Incident brief, facts, items requiring attention, and candidate teams |
 | Assign a team | `POST /incidents/{sysId}/assignment` | Full snapshot after the operation |
+| Take or release an incident | `PUT` or `DELETE /incidents/{sysId}/coordination-claim` | Coordinator ownership and the current dashboard revision |
 
 The command examples below use a local instance without authentication. When coordinator access is configured, call protected routes with the coordinator session cookie over HTTPS.
 
@@ -83,6 +85,7 @@ The signed-in web dashboard issues a five-minute, one-use code and encodes its e
 | `POST /mobile/session` | JSON `{code,deviceId,platform?}` (`android` by default, or `web`) | `201 {token,tokenType:"Bearer",deviceId,user:{login,displayName}}` |
 | `GET /mobile/session` | Mobile session Bearer | `200 {deviceId,user:{login,displayName}}` |
 | `GET /mobile/incidents` | Mobile session Bearer | `200 {revision,serverTime,items}` with current incidents, team and phone, UTC dates, priority, state and `headerKind` |
+| `PUT/DELETE /mobile/incidents/{sysId}/coordination-claim` | Mobile session Bearer, empty body | `200 {coordinationClaim,revision}` |
 | `POST /mobile/incidents/{sysId}/team-contact` | Mobile session Bearer, JSON `{team,requestId}` | `201` with the journal event, or `200` with the same event on retry |
 | `GET /mobile/notifications` | Mobile session Bearer, optional `limit` and `cursor` | `200 {items,nextCursor,unreadCount}`, same notification schema and per-account read state as the dashboard |
 | `PUT /mobile/notifications/{notification_id}/read` | Mobile session Bearer, empty body | `204` |
@@ -212,6 +215,27 @@ On `200`, the client receives the full web snapshot. Changing the team clears th
 
 On `409` with `currentRevision`, fetch the snapshot again, display the current team, and ask the coordinator to confirm the choice again. The API returns a separate `409` for incidents in `Resolved` or `Closed` state.
 
+### Coordinator ownership
+
+Use `PUT /api/v1/incidents/{sysId}/coordination-claim` with a personal web session cookie to take an incident, and `DELETE` on the same route to release it. On mobile use the same methods at `/api/v1/mobile/incidents/{sysId}/coordination-claim` with a mobile session Bearer token. Send an empty body. The server takes the current coordinator's identity from their session.
+
+The incident must currently be assigned to the configured coordinator group and be in `Assigned`, `WorkInProgress`, or `Research`. The first successful claim reserves it. Repeat requests by the owner to take the same incident or releases of an already unclaimed eligible incident succeed without a new revision.
+
+```json
+{"coordinationClaim":{"login":"shift-a","displayName":"Анна","claimedAt":"2026-11-21T09:46:00Z"},"revision":24}
+```
+
+Taking and releasing both return `200`. An empty claim is returned as `null`. Incident objects in the web snapshot, paginated queue and web detail response, as well as in the mobile incident list, have the same top-level `coordinationClaim` field. The web API omits this field when personal accounts are disabled. Its absence also indicates an older API. Claims are cleared when the incident leaves the coordinator queue, is resolved or closed, or is removed from the source. Disabling an account releases its claims. Updates propagate through the web dashboard SSE stream. The claim leaves the ITSM fields, bell rules and assignment KPI unchanged.
+
+| Status and code | When returned |
+|---|---|
+| `401 COORDINATOR_UNAUTHORIZED` | A personal coordinator session is required for web writes |
+| `401 MOBILE_SESSION_UNAUTHORIZED` | A valid mobile session token is required for mobile writes |
+| `404 INCIDENT_NOT_FOUND` | The incident is absent from the current registry |
+| `409 COORDINATION_CLAIM_UNAVAILABLE` | This incident is outside the active coordinator queue |
+| `409 COORDINATION_ALREADY_CLAIMED` | Another coordinator owns the incident. `details.coordinationClaim` gives the current owner. Team assignment by a different coordinator is blocked by the same error when the request uses the current revision |
+| `409 COORDINATION_CLAIM_NOT_OWNED` | Another coordinator attempted to release the claim. `details.coordinationClaim` gives the current owner |
+
 ### Mass-problem workspace
 
 `GET /api/v1/problems/clusters` returns `{revision, items, exclusions}`. Each group in `items` has `id`, `title`, `reason`, `sysIds` and `incidentIds`. Candidates are inferred from registration within 24 hours plus one of: the same service, similar header symptoms, or the same product and usage scenario with a similar problem description (header, short and full description). The same product alone is never enough. With `LLM_ENABLED`, `ai-worker` also asks the local model whether each automatic group describes one problem. A confirmed group gets the model's Russian `title`, and `reason` gets the suffix `. ИИ: <summary>`; an unconfirmed group keeps its rules title and gets `. ИИ не подтвердил общую проблему: <summary>`. The review never changes `id`, membership or exclusions, and it is ignored once any member's header, descriptions, product, service, scenario or the group's membership changes. Manual groups keep the title and reason they had when created. Manual membership and exclusions are shared in PostgreSQL. Exclusion records include `sysId`, `incidentId`, `header`, `groupTitle`, `contextKey`, and `excludedAt` (Unix milliseconds). A service, title or registration-time change sends the affected incident back through automatic grouping.
@@ -264,7 +288,7 @@ data: {"schemaVersion":1,"reason":"assignment"}
 
 ```
 
-Change reasons are `import`, `source`, `expiry`, `assignment`, and `mass_problems`. On `stream.reset`, the server sends `schemaVersion`, `reason`, and the current `eventCursor`, then closes the stream. Reset reasons are `invalid_cursor`, `cursor_ahead`, and `cursor_expired`. The client should close its old subscription, fetch a new snapshot, and open a stream using the returned cursor. Both `since` and `Last-Event-ID` are limited to 32 characters.
+Change reasons are `import`, `source`, `expiry`, `assignment`, `mass_problems`, `team_contacted`, and `coordination_claim`. On `stream.reset`, the server sends `schemaVersion`, `reason`, and the current `eventCursor`, then closes the stream. Reset reasons are `invalid_cursor`, `cursor_ahead`, and `cursor_expired`. The client should close its old subscription, fetch a new snapshot, and open a stream using the returned cursor. Both `since` and `Last-Event-ID` are limited to 32 characters.
 
 ## 5. Incident details, history, and notifications
 

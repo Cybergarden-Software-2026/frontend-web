@@ -7,9 +7,10 @@ import { Icon } from '../components/Icon';
 import { ApiError, api } from '../data/api';
 import { watchIncidentBrief } from '../data/incidentBriefAnalysis';
 import { detailBrief, detailDate, detailSla } from './detailPresentation';
+import { CoordinationControl, type CoordinationActions } from './CoordinationControl';
 
 
-export function IncidentDetailPage({ incidentKey, snapshot, online, now, onBack, backLabel, onAssign }: {
+export function IncidentDetailPage({ incidentKey, snapshot, online, now, onBack, backLabel, onAssign, coordination }: {
  incidentKey: string;
  snapshot: Snapshot | null;
  online: boolean;
@@ -17,6 +18,7 @@ export function IncidentDetailPage({ incidentKey, snapshot, online, now, onBack,
  onBack: () => void;
  backLabel: string;
  onAssign: (id: string) => void;
+ coordination: CoordinationActions;
 }) {
  const revision = snapshot?.revision ?? 0;
  const cached = snapshot?.items.find(item => item.sysId === incidentKey || item.id === incidentKey);
@@ -53,7 +55,7 @@ export function IncidentDetailPage({ incidentKey, snapshot, online, now, onBack,
  const present = response && response.revision >= revision ? response.isPresent : Boolean(cached);
  return <>
   {online && status === 'error' && <p className="detail-inline-error" role="status">Не удалось обновить карточку. Показаны последние данные. <button className="text-button" onClick={() => setAttempt(value => value + 1)}>Повторить</button></p>}
-  <Detail item={item} snapshot={snapshot} revision={Math.max(revision, response?.revision ?? 0)} present={present} online={online} now={now} onBack={onBack} backLabel={backLabel} onAssign={assign}/>
+  <Detail item={item} snapshot={snapshot} revision={Math.max(revision, response?.revision ?? 0)} present={present} online={online} now={now} onBack={onBack} backLabel={backLabel} onAssign={assign} coordination={coordination}/>
  </>;
 }
 
@@ -128,9 +130,10 @@ function IncidentHistory({ item, snapshot, revision, online, onLatest }: {
 }
 
 
-function Detail({ item, snapshot, revision, present, online, now, onBack, backLabel, onAssign }: {
+function Detail({ item, snapshot, revision, present, online, now, onBack, backLabel, onAssign, coordination }: {
  item: Incident; snapshot: Snapshot | null; revision: number; present: boolean; online: boolean;
  now: number; onBack: () => void; backLabel: string; onAssign?: () => void;
+ coordination: CoordinationActions;
 }) {
  const [aiOpen, setAiOpen] = useState(false);
  const [analysis, setAnalysis] = useState<Analysis | null>(null);
@@ -148,6 +151,7 @@ function Detail({ item, snapshot, revision, present, online, now, onBack, backLa
  const facts = [['Продукт', item.productName], ['Сервис', item.service], ['Сценарий использования', item.scenarioName],
   ['Тип сервиса', item.serviceType], ['Влияние', item.impact], ['Срочность', item.urgency]];
  const brief = aiOpen ? detailBrief(item, [...latestEvents, ...(snapshot?.events ?? [])], revision, online && present ? analysis : null) : null;
+ const claimedByOther = item.coordinationClaim && item.coordinationClaim.login !== coordination.login;
 
 
  return <article className="incident-detail-page" aria-labelledby="incident-title" data-incident-id={item.sysId}>
@@ -192,7 +196,8 @@ function Detail({ item, snapshot, revision, present, online, now, onBack, backLa
     </section>
     <section className="surface detail-card incident-owner"><h2>Ответственные</h2>
      <dl className="detail-table"><DetailRow label="Команда" value={item.assignedGroupName} empty="Не назначена"/><DetailRow label="Исполнитель" value={item.assignedEmployee} empty="Не назначен"/><DetailRow label="Логин исполнителя" value={item.assignedEmployeeLogin}/><DetailRow label="Назначение команде" value={detailDate(item.lastAssignmentToTeamDateTime)}/></dl>
-     {onAssign && canAssign(item) && <button className="button detail-outline-action detail-assign" onClick={onAssign}><Icon name="userPlus" size={16}/>Назначить / сменить команду</button>}
+     <CoordinationControl item={item} actions={coordination} present={present}/>
+     {onAssign && !claimedByOther && canAssign(item) && <button className="button detail-outline-action detail-assign" disabled={coordination.pending.has(item.sysId)} onClick={onAssign}><Icon name="userPlus" size={16}/>Назначить / сменить команду</button>}
     </section>
     <IncidentHistory item={item} snapshot={snapshot} revision={revision} online={online} onLatest={setLatestEvents}/>
    </aside>

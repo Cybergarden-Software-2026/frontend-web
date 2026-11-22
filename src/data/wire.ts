@@ -1,4 +1,4 @@
-import type { ChangeEvent, Incident, Snapshot } from '../domain/incidents';
+import type { ChangeEvent, CoordinationClaim, Incident, Snapshot } from '../domain/incidents';
 
 type RawIncident = Record<string, unknown>;
 export type WireEvent = Omit<ChangeEvent, 'header' | 'current' | 'previous'> & {
@@ -41,6 +41,15 @@ function flag(value: unknown): boolean | undefined {
   return word ? ['true', 'да', 'yes', '1'].includes(word) : undefined;
 }
 
+function normalizeCoordinationClaim(value: unknown): CoordinationClaim | null | undefined {
+  if (value === null) return null;
+  if (!value || typeof value !== 'object') return undefined;
+  const { login, displayName, claimedAt } = value as Partial<CoordinationClaim>;
+  if (typeof login !== 'string' || !login.trim() || typeof displayName !== 'string'
+    || typeof claimedAt !== 'string' || !Number.isFinite(Date.parse(claimedAt))) return undefined;
+  return { login, displayName: displayName.trim() || login, claimedAt };
+}
+
 interface SourceDates {
   submitDate: string;
   deadline: string | null;
@@ -65,6 +74,7 @@ export function normalizeIncident(raw: RawIncident): Incident {
     urgencyId: numberOrNull(raw.urgencyId), urgency: text(raw.urgency),
     assignedGroupName: text(raw.assignedGroupName), assignedEmployee: text(raw.assignedEmployee),
     assignedEmployeeLogin: text(raw.assignedEmployeeLogin), initiatorName: text(raw.initiatorName),
+    coordinationClaim: normalizeCoordinationClaim(raw.coordinationClaim),
     initiatorLogin: text(raw.initiatorLogin), serviceType: text(raw.serviceType),
     receivingChannel: text(raw.receivingChannel), solution: text(raw.solution),
     submitDate: text(dates.submitDate), deadline: text(dates.deadline) || null,

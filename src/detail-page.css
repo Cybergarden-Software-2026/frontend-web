@@ -40,6 +40,8 @@
 .detail-table dd{font-size:14px;line-height:20.3px;font-weight:500;color:#211a2e;margin:0;overflow-wrap:anywhere}
 .deadline-dates>div{padding:8px 0}
 .incident-owner{gap:20px}.incident-owner .detail-table>div{padding:9px 0}.incident-owner .detail-table>div:last-child{border-bottom:0}.incident-owner .detail-assign{align-self:center}
+.incident-owner .coordination-control{justify-content:center}
+.incident-owner .coordination-status,.incident-owner .coordination-action{padding:8px 10px}
 .detail-history-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;min-height:38px}
 .detail-history-pagination{display:flex;align-items:flex-end;gap:28px}.detail-history-position{display:flex;flex-direction:column;gap:8px;color:#81738e;font-size:11px;line-height:16px;min-width:80px}
 .detail-history-progress{display:block;width:80px;height:2px;background:#e5dced;overflow:hidden;border-radius:2px}.detail-history-progress i{display:block;height:100%;background:#ef6c8c;transition:width .25s}
