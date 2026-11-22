@@ -25,9 +25,11 @@ try{
  assert.equal((realPhone.match(/href="tel:/g)||[]).length,1);
  assert.doesNotMatch(realPhone,/Отметить контакт/);
  const testPhone=detail({teamPhone:'+78194693716',teamPhoneIsTest:true});
- assert.doesNotMatch(testPhone,/href="tel:/);assert.match(testPhone,/Тестовый номер \+78194693716/);
- assert.match(testPhone,/Связаться с командой/);assert.match(testPhone,/Рабочий номер команды недоступен/);
- assert.doesNotMatch(detail({teamPhone:'+78194693716'}),/href="tel:/);
+ assert.doesNotMatch(testPhone,/тестовый|Рабочий номер команды недоступен/i);
+ assert.match(testPhone,/<small>\+78194693716<\/small>/);
+ assert.match(testPhone,/href="tel:\+78194693716"[^>]*>Открыть телефон<\/a>/);
+ assert.match(detail({teamPhone:'+78194693716'}),/href="tel:\+78194693716"/);
+ assert.doesNotMatch(detail({teamPhone:'javascript:alert(1)'}),/href="tel:/);
  assert.doesNotMatch(detail({teamPhone:null,teamPhoneIsTest:false}),/href="tel:/);
  assert.doesNotMatch(detail({assignedGroupName:null}),/Связаться с командой/);
  assert.doesNotMatch(detail({assignedGroupName:'КЦ ИТ Координаторы Массовых Инцидентов',teamPhone:'+12025550100',teamPhoneIsTest:false}),/Связаться с командой/);

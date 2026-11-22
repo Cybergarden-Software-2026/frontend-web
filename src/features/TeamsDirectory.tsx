@@ -42,7 +42,7 @@ export function TeamsDirectory({items,now,revision,connected,loading,onTeam,onOp
    <div className="teams-card-body"><header className="teams-card-heading"><span className="teams-card-avatar" aria-hidden="true">{card.initials}</span><div><button className="teams-card-title" onClick={()=>onTeam(card.name)} title="Открыть очередь команды">{card.name}</button><p>{card.description}</p></div></header>
     {card.attention.length>0&&<div className="teams-attention"><strong>Требуют внимания</strong><ul>{card.attention.slice(0,6).map(item=><li key={item.sysId}><a href={`#incident/${encodeURIComponent(item.sysId)}?from=teams`} title={`${item.id} · ${item.header}`} onClick={event=>{event.preventDefault();onOpen(item.sysId);}}><b>{item.id}</b><span> · {item.header}</span></a></li>)}</ul>{card.attention.length>6&&<button className="teams-more" onClick={()=>onTeam(card.name)}>Ещё {card.attention.length-6} инцидентов</button>}</div>}
     <footer className="teams-card-contacts">
-     <span>Телефон команды: {card.phone?(card.phoneIsTest?<>{card.phone} (тестовый)</>:<a href={`tel:${card.phone}`}>{card.phone}</a>):'не указан'}</span>
+     <span>Телефон команды: {card.phone?<a href={`tel:${card.phone}`}>{card.phone}</a>:'не указан'}</span>
      <button className="teams-copy" disabled={!card.phone} aria-label={card.phone?'Скопировать номер команды':'Телефон команды не указан'} title={card.phone?'Скопировать номер':'Телефон не указан'} onClick={()=>{if(card.phone)void copy(card.name,card.phone);}}><Icon name={copied===card.name?'check':'copy'} size={15}/></button>
     </footer>
    </div>
