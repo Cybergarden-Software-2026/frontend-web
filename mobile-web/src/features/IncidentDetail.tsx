@@ -78,16 +78,13 @@ export function IncidentDetail({item, now, onBack, owner, refresh, onExpired}: {
               <dt>Команда</dt>
               <dd className="mobile-detail-team">
                 <span>{team || 'Не назначена'}{team && <small>{telephone ? phone : item.teamPhoneIsTest === true && phone ? `Тестовый номер ${phone}` : 'Номер не указан'}</small>}</span>
-                {telephone ? <a className="mobile-detail-call" href={telephone} aria-label={`Позвонить команде ${team}`}>
-                  <Icon name="handset" size={19}/>
-                </a> : null}
               </dd>
             </div>
             {item.assignedEmployee && <div><dt>Исполнитель</dt><dd>{item.assignedEmployee}</dd></div>}
             {item.assignedEmployeeLogin && <div><dt>Логин исполнителя</dt><dd>{item.assignedEmployeeLogin}</dd></div>}
             {item.lastAssignmentToTeamDateTime && <div><dt>Назначение команде</dt><dd>{dateLabel(item.lastAssignmentToTeamDateTime)}</dd></div>}
           </dl>
-          {canContact && <TeamContactAction key={team} owner={owner} sysId={item.sysId} team={team} refresh={refresh} onExpired={onExpired}/>}
+          {canContact && <TeamContactAction key={team} owner={owner} sysId={item.sysId} team={team} telephone={telephone} refresh={refresh} onExpired={onExpired}/>}
         </section>
       </div>
 

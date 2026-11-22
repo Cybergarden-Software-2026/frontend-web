@@ -116,21 +116,11 @@
 .mobile-detail-team > span { min-width: 0; }
 .mobile-detail-team small { display: block; margin-top: 3px; color: #61576d; font-size: 11px; }
 
-.mobile-detail-call {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  color: var(--red);
-  border: 1px solid var(--red);
-  background: white;
-  border-radius: 12px;
-}
-
-.mobile-detail-call:hover { background: #fff0f3; }
 .mobile-team-contact { display: grid; gap: 8px; }
 .mobile-team-contact .button { min-height: 44px; padding: 8px 12px; }
+.mobile-team-contact .button svg { color: var(--red); }
+.mobile-team-contact .button:hover { background: #fff0f3; }
+.mobile-team-contact .button[aria-disabled="true"] { opacity: .65; cursor: default; }
 .mobile-team-contact [role="status"] { color: #206650; font-size: 13px; }
 
 .mobile-detail-facts {

@@ -1,12 +1,13 @@
 import {useEffect, useRef, useState} from 'react';
 import {Icon} from '../components/Icon.tsx';
-import {Spinner, message} from '../components/ui.tsx';
+import {message} from '../components/ui.tsx';
 import {api, ApiError, API_BASE} from '../data/api.ts';
 
-export function TeamContactAction({owner, sysId, team, refresh, onExpired}: {
+export function TeamContactAction({owner, sysId, team, telephone, refresh, onExpired}: {
   owner: string;
   sysId: string;
   team: string;
+  telephone: string | null;
   refresh: () => void;
   onExpired: () => void;
 }) {
@@ -16,7 +17,7 @@ export function TeamContactAction({owner, sysId, team, refresh, onExpired}: {
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<{message: string; retry: boolean} | null>(null);
 
   useEffect(() => {
     active.current = true;
@@ -28,7 +29,7 @@ export function TeamContactAction({owner, sysId, team, refresh, onExpired}: {
     inFlight.current = true;
     setBusy(true);
     setSaved(false);
-    setError('');
+    setError(null);
     let storedId: string | null = null;
     try { storedId = localStorage.getItem(storageKey); } catch {}
     const requestId = pendingId.current ?? storedId ?? crypto.randomUUID();
@@ -49,26 +50,41 @@ export function TeamContactAction({owner, sysId, team, refresh, onExpired}: {
     } catch (failure) {
       const code = failure instanceof ApiError ? failure.code : '';
       const outdated = ['INCIDENT_NOT_FOUND', 'TEAM_CONTACT_ASSIGNMENT_CHANGED', 'TEAM_CONTACT_UNAVAILABLE'].includes(code);
-      if (outdated || code === 'TEAM_CONTACT_REQUEST_CONFLICT') clearPending();
+      const retry = !outdated && code !== 'TEAM_CONTACT_REQUEST_CONFLICT';
+      if (!retry) clearPending();
       if (!active.current) return;
       if (failure instanceof ApiError && failure.status === 401) {
         onExpired();
         return;
       }
       if (outdated) refresh();
-      setError(message(failure));
+      setError({message: message(failure), retry});
     } finally {
       inFlight.current = false;
       if (active.current) setBusy(false);
     }
   }
 
+  const label = <><Icon name="handset" size={18}/>Связаться с командой</>;
+  if (!telephone) return <div className="mobile-team-contact">
+    <button type="button" className="button outline" disabled>{label}</button>
+  </div>;
+
   return <div className="mobile-team-contact">
-    <button type="button" className="button outline" onClick={() => void record()} disabled={busy} aria-busy={busy}>
-      {busy ? <Spinner/> : <Icon name="check" size={16}/>}
-      {saved ? 'Отметить повторный контакт' : 'Связались с командой'}
-    </button>
+    <a className="button outline" href={telephone} aria-disabled={busy} aria-busy={busy} onClick={event => {
+      if (inFlight.current) {
+        event.preventDefault();
+        return;
+      }
+      // Start the request in this click and let the link open the dialer directly.
+      void record();
+    }}>
+      {label}
+    </a>
     {saved && <p role="status">Контакт записан в журнал.</p>}
-    {error && <p role="alert" className="error">{error}</p>}
+    {error && <>
+      <p role="alert" className="error">{error.message}</p>
+      {error.retry && <button type="button" className="text-button" onClick={() => void record()}>Повторить запись</button>}
+    </>}
   </div>;
 }
