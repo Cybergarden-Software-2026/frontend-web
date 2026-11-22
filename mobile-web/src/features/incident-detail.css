@@ -122,19 +122,6 @@
 .mobile-team-contact .button:hover { background: #fff0f3; }
 .mobile-team-contact .button[aria-disabled="true"] { opacity: .65; cursor: default; }
 
-.mobile-claim-action { display: grid; gap: 8px; }
-.mobile-claim-action .button { min-height: 44px; padding: 8px 12px; }
-.mobile-claim-label {
-  width: fit-content;
-  border-radius: 8px;
-  padding: 5px 8px;
-  background: #eee6fb;
-  color: var(--purple);
-  font-size: 12px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
 .mobile-detail-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

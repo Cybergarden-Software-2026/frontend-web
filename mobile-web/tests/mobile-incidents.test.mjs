@@ -21,14 +21,3 @@ test('phone flags survive the mobile snapshot and invalid optional fields do not
  assert.equal(malformed.teamPhone,undefined);
  assert.equal(malformed.teamPhoneIsTest,undefined);
 });
-
-test('claim data distinguishes an available incident from an older or malformed snapshot',()=>{
- const claim={login:'anna',displayName:'Анна',claimedAt:new Date(now).toISOString()};
- const snapshot=parseMobileSnapshot({revision:43,serverTime:new Date(now).toISOString(),items:[
-  item,
-  {...item,sysId:'2',coordinationClaim:null},
-  {...item,sysId:'3',coordinationClaim:claim},
-  {...item,sysId:'4',coordinationClaim:{...claim,claimedAt:'broken'}},
- ]});
- assert.deepEqual(snapshot.items.map(i=>i.coordinationClaim),[undefined,null,claim,undefined]);
-});
