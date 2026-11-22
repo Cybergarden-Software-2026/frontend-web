@@ -15,7 +15,7 @@ Status reflects the committed implementation in the owning repository. Productio
 | Current incidents and the three dashboard header conditions via `GET /api/v1/mobile/incidents` | `backend` | Implemented (personal mobile session) |
 | Team phone numbers in `GET /api/v1/teams` and `GET /api/v1/mobile/incidents` | `backend` | Implemented |
 | `POST /api/v1/mobile/incidents/{sysId}/team-contact` and `team_contacted` event projection | `backend` | Implemented (personal mobile session) |
-| Team phone display, mobile contact confirmation and web journal label | `frontend-web` | Implemented |
+| Team phone display, mobile call action with contact recording and web journal label | `frontend-web` | Implemented |
 | `GET /api/v1/snapshot` and `GET /api/v1/dashboard` | `backend` | Implemented |
 | `GET /api/v1/incidents` with page and cursor pagination, and `GET /api/v1/incidents/{key}?view=web` | `backend` | Implemented |
 | `GET /api/v1/teams` and rules-based `GET /api/v1/incidents/{key}/analysis` | `backend` | Implemented |
@@ -97,7 +97,7 @@ Mobile sessions have no fixed expiry. A fresh QR login for the same account and 
 
 To display header cards, select items with a non-null `headerKind`. Values are `critical`, `waiting` and `deadline`, in order of precedence when a ticket matches multiple conditions. Each item has `sysId`, `id`, `header`, `normalizedState`, `priorityId`, `assignedGroupName`, `submitDate`, `lastAssignmentToTeamDateTime`, `deadline` and `headerKind`. All items come from one snapshot revision. The server evaluates them at `serverTime` on each request, so a time threshold can change the cards within the same revision. Before the first successful import this route returns `503 SOURCE_NOT_READY`. After a successful empty import it returns `200` with `items: []`.
 
-Each mobile incident also has `teamPhone` and `teamPhoneIsTest`. The call action opens the system dialer for an international-format number with `teamPhoneIsTest: false`. The separate «Связались с командой» action sends the displayed `assignedGroupName` as `team` and a UUID `requestId`. A retry after a lost response uses the same UUID. The backend validates the assignment and records the authenticated coordinator and server time. See the [team contact examples and errors](https://github.com/Cybergarden-Software-2026/backend/blob/main/docs/mobile.md#связь-с-командой).
+Each mobile incident also has `teamPhone` and `teamPhoneIsTest`. For a resolution team with an international-format number and `teamPhoneIsTest: false`, tapping «Связаться с командой» starts a keepalive request and opens the system dialer with that number. The action is disabled for a test or missing number. The request sends the displayed `assignedGroupName` as `team` and a UUID `requestId`. The event records the action at tap time. After a network failure, «Повторить запись» sends the same UUID without opening the dialer again. The backend validates the assignment and records the authenticated coordinator and server time. See the [team contact examples and errors](https://github.com/Cybergarden-Software-2026/backend/blob/main/docs/mobile.md#связь-с-командой).
 
 ## 1. Get a snapshot and find incident identifiers
 

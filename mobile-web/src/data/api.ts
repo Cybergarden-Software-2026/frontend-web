@@ -36,7 +36,7 @@ export const api={
  session:()=>request<Omit<MobileSession,'token'|'tokenType'>>('/mobile/session'),
  logout:()=>request<void>('/mobile/session',{method:'DELETE'}),
  incidents:()=>request<unknown>('/mobile/incidents').then(parseMobileSnapshot),
- recordTeamContact:(sysId:string,team:string,requestId:string)=>request<unknown>(`/mobile/incidents/${encodeURIComponent(sysId)}/team-contact`,{method:'POST',body:JSON.stringify({team,requestId})}),
+ recordTeamContact:(sysId:string,team:string,requestId:string)=>request<unknown>(`/mobile/incidents/${encodeURIComponent(sysId)}/team-contact`,{method:'POST',keepalive:true,body:JSON.stringify({team,requestId})}),
  notifications:(cursor?:string)=>request<NoticePage>('/mobile/notifications?limit=100'+(cursor?'&cursor='+encodeURIComponent(cursor):'')),
  read:(id:string|number)=>request<void>('/mobile/notifications/'+encodeURIComponent(String(id))+'/read',{method:'PUT'}),
  registerPush:(fcmToken:string)=>request<void>('/mobile/devices/current/token',{method:'PUT',body:JSON.stringify({fcmTargetType:'token',fcmToken})}),

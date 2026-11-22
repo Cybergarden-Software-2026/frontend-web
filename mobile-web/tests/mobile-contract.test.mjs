@@ -40,6 +40,7 @@ test('team contact records the exact team with a stable idempotency key for a re
   for(const {url,init} of calls){
    assert.match(url,/\/mobile\/incidents\/sys%2F1\/team-contact$/);
    assert.equal(init.method,'POST');
+   assert.equal(init.keepalive,true);
    assert.equal(init.credentials,'omit');
    assert.equal(init.headers.Authorization,'Bearer mobile');
    assert.deepEqual(JSON.parse(init.body),{team:'Инфраструктура',requestId});
