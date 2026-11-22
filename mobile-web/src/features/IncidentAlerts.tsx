@@ -1,8 +1,8 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {Icon} from '../components/Icon.tsx';
 import {Spinner} from '../components/ui.tsx';
-import {currentMobileAlerts, type MobileSnapshot} from '../domain/mobileIncidents.ts';
-import {countdown, type HeaderAlert} from '../domain/alerts.ts';
+import {currentMobileAlerts, type MobileAlert, type MobileSnapshot} from '../domain/mobileIncidents.ts';
+import {countdown} from '../domain/alerts.ts';
 import {STATES, stateOf} from '../domain/incidents.ts';
 import {displaySlaKind} from '../domain/deadlineDisplay.ts';
 import {IncidentDetail} from './IncidentDetail.tsx';
@@ -17,6 +17,7 @@ interface Props {
 }
 
 const alertIcon = {critical: 'alert', waiting: 'people', deadline: 'clock'};
+const alertReason = {critical: 'Критический инцидент', waiting: 'Ожидает распределения больше 8 минут', deadline: 'Истекает'};
 const alertCountGrammar = new Intl.PluralRules('ru');
 const deadlineLabel = {
  late: 'Просрочен', soon: 'Истекает', normal: 'Осталось', restored: 'Устранён',
@@ -28,9 +29,10 @@ function incidentId(hash: string) {
  try { return decodeURIComponent(hash.slice('#incident/'.length)); } catch { return ''; }
 }
 
-function IncidentCard({alert, now}: {alert: HeaderAlert; now: number}) {
- const {item, kind, reason} = alert;
+function IncidentCard({alert, now}: {alert: MobileAlert; now: number}) {
+ const {item, kind} = alert;
  const sla = displaySlaKind(item, now);
+ const reason = kind === 'deadline' && sla === 'late' ? 'Срок решения истёк' : alertReason[kind];
  const team = item.assignedGroupName.trim();
  const initials = team.replace(/^КЦ\s+/i, '').split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase();
  const description = item.shortDescription?.trim() || item.description.trim();
@@ -69,6 +71,7 @@ export function IncidentAlerts({snapshot, now, loading, error, refresh}: Props) 
 
  const selectedId = incidentId(hash);
  const selected = snapshot?.items.find(item => item.sysId === selectedId);
+ const alerts = useMemo(() => snapshot ? currentMobileAlerts(snapshot) : [], [snapshot]);
  const back = () => { location.hash = 'alerts'; };
  const connection = error && <div className="connection" role="status">
   <Icon name="signal"/>
@@ -89,7 +92,6 @@ export function IncidentAlerts({snapshot, now, loading, error, refresh}: Props) 
    </>}
  </>;
 
- const alerts = snapshot ? currentMobileAlerts(snapshot, now) : [];
  return <>
   <section className={`summary mobile-alert-summary${alerts.length ? ' needs-attention' : ''}`}>
    <div className="key-pattern" aria-hidden="true"><i>Ctrl</i><i>МТС</i><i>{'{ }'}</i><i>+</i></div>
