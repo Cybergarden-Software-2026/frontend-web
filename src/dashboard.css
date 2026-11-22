@@ -94,7 +94,7 @@ html,body,#root{height:100%;overflow:hidden}
 .queue-cards,.queue-card-sort.button,.queue-card-loading{display:none}
 @media(max-width:1050px){
  .incident-table-wrap{display:none}
- .incident-queue .incident-tabs{flex-wrap:wrap;overflow:visible}
+ .incident-queue .incident-tabs{flex-wrap:wrap;height:auto;overflow:visible}
  .incident-queue .incident-tabs button{white-space:normal;text-align:left}
  .queue-card-sort.button{display:inline-flex;min-height:36px;padding:6px 10px;font-size:12px}
  .queue-card-sort[aria-pressed=true]{background:var(--lilac);color:var(--primary-hover)}
