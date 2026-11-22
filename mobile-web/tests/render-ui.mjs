@@ -18,5 +18,10 @@ try{
  assert.match(markup,/Критическая задача/);assert.match(markup,/Ждёт координатора/);assert.match(markup,/Срок подходит/);assert.doesNotMatch(markup,/Обычная невидимая задача/);assert.match(markup,/00:01:00/);
  const login=renderToStaticMarkup(React.createElement(Login,{notice:'',onLogin:async()=>{}}));
  assert.match(login,/Сканировать QR-код/);assert.match(login,/Код действует 5 минут/);assert.match(login,/globe-scene/);
+ Object.defineProperty(navigator,'standalone',{configurable:true,value:true});
+ try{
+  const installed=renderToStaticMarkup(React.createElement(Login,{notice:'',onLogin:async()=>{}}));
+  assert.match(installed,/Откроется камера iPhone/);assert.match(installed,/capture="environment"/);assert.match(installed,/Открыть просмотр камеры/);
+ }finally{delete navigator.standalone}
  console.log('SSR checks: three live header categories, ordinary incident exclusion, timer, QR login and globe.');
 }finally{await server.close()}
