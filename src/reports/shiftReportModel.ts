@@ -4,7 +4,7 @@ import { STATES,stateOf,timestamp } from '../domain/incidents.ts';
 import { journalDescription,journalEventType } from '../domain/eventJournal.ts';
 import type { PersonalStatistics } from '../domain/personalStatistics.ts';
 
-export interface ReportContext { revision:number; connected:boolean; historyIncomplete:boolean; updatedAt:string; sourceStale?:boolean; personal?:PersonalStatistics; generalAvailable?:boolean; }
+export interface ReportContext { revision:number; connected:boolean; historyIncomplete:boolean; updatedAt:string; sourceStale?:boolean; personal?:PersonalStatistics; personalAccount?:boolean; generalAvailable?:boolean; }
 export type ReportValue=string|number|null;
 export interface ReportSection { title:string; columns:{label:string;format?:'minutes'|'percent'|'decimal'}[]; rows:ReportValue[][]; }
 export const reportDate=(ms:number)=>new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',dateStyle:'short',timeStyle:'medium'}).format(ms)+' МСК';
@@ -46,15 +46,21 @@ export function shiftReportSections(s:ShiftStatistics,context:ReportContext):Rep
 function personalReportSections(s:ShiftStatistics,context:ReportContext,p:PersonalStatistics):ReportSection[]{
  const general=(value:number)=>context.generalAvailable===false?null:value;
  const demo=p.source==='demo';
+ const individual=demo||context.personalAccount===true;
+ const scopeNote=demo
+  ? 'Личные показатели и распределения вымышлены для тестового аккаунта. Они не отражают работу реальных сотрудников.'
+  : individual
+   ? 'Личные показатели рассчитаны по назначениям, записанным под этой учётной записью. Показатели очереди общие.'
+   : 'Показатели относятся ко всей смене координаторов.';
  return [
-  {title:demo?'Личная статистика':'Статистика смены',columns:[{label:'Показатель'},{label:'Значение'}],rows:[
-   [demo?'Сотрудник':'Смена',p.coordinator.name],['Источник показателей',demo?'ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ — тестовый аккаунт':'Журнал назначений на сервере'],
+  {title:individual?'Личная статистика':'Статистика смены',columns:[{label:'Показатель'},{label:'Значение'}],rows:[
+   [demo?'Сотрудник':individual?'Координатор':'Смена',p.coordinator.name],['Источник показателей',demo?'ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ — тестовый аккаунт':'Журнал назначений на сервере'],
    ['Начало периода',reportDate(p.start)],['Конец периода',reportDate(p.end)],['Распределено',p.transferred],['Среднее время координирования',durationLabel(p.averageMs)],['KPI: доля передач меньше 10 минут, %',p.kpiPercent],['KPI выполнен, передач',p.kpiMet],['Передач с измеренным временем',p.measured],['Критических распределено',p.critical],
   ]},
-  {title:demo?'Мои распределения':'Распределения смены',columns:[{label:'Инцидент'},{label:'Название'},{label:'Команда решения'},{label:'Назначено МСК'},{label:'Время координирования, мин',format:'minutes'},{label:'KPI меньше 10 минут'}],rows:p.transfers.map(row=>[row.incidentId,row.title,row.team,reportDate(row.assignedAt),minutes(row.durationMs),row.kpiMet===null?'Нет данных':row.kpiMet?'Выполнен':'Не выполнен'])},
+  {title:individual?'Мои распределения':'Распределения смены',columns:[{label:'Инцидент'},{label:'Название'},{label:'Команда решения'},{label:'Назначено МСК'},{label:'Время координирования, мин',format:'minutes'},{label:'KPI меньше 10 минут'}],rows:p.transfers.map(row=>[row.incidentId,row.title,row.team,reportDate(row.assignedAt),minutes(row.durationMs),row.kpiMet===null?'Нет данных':row.kpiMet?'Выполнен':'Не выполнен'])},
   {title:'Общая очередь',columns:[{label:'На конец выбранного периода'},{label:'Количество'}],rows:[['Ожидают распределения',general(s.coordinator.atEnd)],['Критических без команды',general(s.coordinator.critical)],['Ждут больше 8 минут',general(s.waitingOver8)]]},
   {title:'О данных',columns:[{label:'Источник и правила'}],rows:[
-   [demo?'Личные показатели и распределения вымышлены для тестового аккаунта. Они не отражают работу реальных сотрудников.':'Показатели относятся ко всей смене координаторов.'],
+   [scopeNote],
    ['KPI выполнен при передаче строго меньше чем за 10 минут. Ровно 10:00 не соответствует KPI. Неизвестные длительности не входят в среднее и долю KPI.'],
    ['Период задан в московском времени UTC+3. Начало включено, конец исключён. Все распределения за период включены в отчёт.'],
    [context.generalAvailable===false?'Общая очередь не загружена; пустые значения не означают нулевую очередь.':`Общая очередь — по загруженному снимку версии ${context.revision} и доступной истории изменений. Последнее изменение: ${date(context.updatedAt)}.`],

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync,mkdirSync,writeFileSync } from 'node:fs';
 import ExcelJS from 'exceljs';
 import { buildShiftStatistics } from '../src/domain/shiftStatistics.ts';
+import { buildPersonalStatistics } from '../src/domain/personalStatistics.ts';
 import { createShiftPdf,createShiftXlsx } from '../src/reports/shiftReportFiles.ts';
 import { reportNotes,shiftReportSections } from '../src/reports/shiftReportModel.ts';
 const start=Date.parse('2026-11-21T06:00:00Z'),end=start+12*3600_000;
@@ -33,8 +34,24 @@ test('empty-period Excel has no fabricated means, no blank default sheet, and ex
  assert.equal(book.worksheets.length,8);assert.equal(book.getWorksheet('Передачи командам').getCell('A5').value,'Нет данных за выбранный период');
  assert.equal(shiftReportSections(empty,context)[0].rows.find(r=>r[0]==='KPI: доля передач меньше 10 минут, %')[1],null);
 });
+test('account export describes personal assignments alongside the common queue',async()=>{
+ const profile={id:'shift',name:'Анна Смирнова'};
+ const transfer={id:'1',coordinatorId:profile.id,incidentId:'INC-1',title:'Ошибка оплаты',team:'Платёжная платформа',priorityId:4,waitingStartedAt:start,assignedAt:start+1000};
+ const personal=buildPersonalStatistics(profile,[transfer],start,end,'api');
+ const accountContext={...context,personal,personalAccount:true,generalAvailable:true};
+ const workbook=new ExcelJS.Workbook();
+ await workbook.xlsx.load(await createShiftXlsx(stats,accountContext));
+ assert.deepEqual(workbook.worksheets.map(sheet=>sheet.name),['Личная статистика','Мои распределения','Общая очередь','О данных']);
+ assert.deepEqual(workbook.getWorksheet('Личная статистика').getRow(5).values.slice(1),['Координатор',profile.name]);
+ assert.equal(workbook.getWorksheet('Мои распределения').getCell('A5').value,transfer.incidentId);
+ assert.equal(workbook.getWorksheet('Общая очередь').getCell('B5').value,stats.coordinator.atEnd);
+ assert.match(workbook.getWorksheet('О данных').getCell('A5').value,/назначениям, записанным под этой учётной записью/);
+
+ const shared=shiftReportSections(stats,{...context,personal:{...personal,coordinator:{id:'shift',name:'Смена координаторов'}}});
+ assert.deepEqual(shared.map(section=>section.title),['Статистика смены','Распределения смены','Общая очередь','О данных']);
+ assert.match(shared[3].rows[0][0],/всей смене/);
+});
 test('personal demo export has four compact sheets, all transfers, and explicit provenance on every sheet',async()=>{
- const {buildPersonalStatistics}=await import('../src/domain/personalStatistics.ts');
  const {DEMO_COORDINATOR,createDemoCoordinatorHistory}=await import('./fixtures/demoPersonalStatistics.mjs');
  const personal=buildPersonalStatistics(DEMO_COORDINATOR,createDemoCoordinatorHistory(end),start,end,'demo');
  const ctx={...context,personal,generalAvailable:false},sections=shiftReportSections(stats,ctx);

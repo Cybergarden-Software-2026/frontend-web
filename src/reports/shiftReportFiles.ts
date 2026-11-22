@@ -7,15 +7,17 @@ export async function createShiftPdf(stats:ShiftStatistics,context:ReportContext
  const [{jsPDF},{autoTable}]=await Promise.all([import('jspdf'),import('jspdf-autotable')]);
  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
  const demo=context.personal?.source==='demo';
+ const personal=context.personalAccount===true;
  doc.addFileToVFS('MTSText-Regular.ttf',bytesToBase64(fonts.regular));doc.addFont('MTSText-Regular.ttf','MTSText','normal');
  doc.addFileToVFS('MTSText-Bold.ttf',bytesToBase64(fonts.bold));doc.addFont('MTSText-Bold.ttf','MTSText','bold');
- doc.setProperties({title:demo?'ДЕМО · UnderCtrl — личная статистика':'UnderCtrl — работа координаторов за период',subject:reportDate(stats.start)+' — '+reportDate(stats.end),creator:'UnderCtrl'});
+ doc.setProperties({title:demo?'ДЕМО · UnderCtrl — личная статистика':personal?'UnderCtrl — личная статистика':'UnderCtrl — работа координаторов за период',subject:reportDate(stats.start)+' — '+reportDate(stats.end),creator:'UnderCtrl'});
  const sections=shiftReportSections(stats,context);
  for(const [index,section] of sections.entries()){
   if(index)doc.addPage();
   doc.setFont('MTSText','bold');doc.setTextColor('#231E32');doc.setFontSize(18);doc.text('UnderCtrl · '+section.title,14,17);
   doc.setFont('MTSText','normal');doc.setTextColor('#625B71');doc.setFontSize(9);doc.text(reportDate(stats.start)+' — '+reportDate(stats.end),14,24);
   if(demo){doc.setTextColor('#79501B');doc.text('Демонстрационные личные показатели · Тестовый аккаунт',14,30);}
+  else if(!index&&personal){doc.text('Личные показатели по журналу назначений',14,30);}
   else if(!index){doc.setTextColor(context.historyIncomplete||!context.connected?'#79501B':'#625B71');doc.text(context.historyIncomplete?'История неполная. Подробности на листе «Методика».':!context.connected?'Использованы последние загруженные данные.':'Показатели по снимку и доступной истории изменений.',14,30);}
   autoTable(doc,{startY:demo?36:index?30:35,margin:{top:14,right:14,bottom:18,left:14},head:[section.columns.map(c=>c.label)],body:section.rows.length?section.rows.map(row=>row.map((value,column)=>printValue(value,section.columns[column].format))):[['Нет данных за выбранный период',...section.columns.slice(1).map(()=> '—')]],styles:{font:'MTSText',fontStyle:'normal',fontSize:8,cellPadding:index===0?1.3:2.5,overflow:'linebreak',textColor:'#231E32',lineColor:'#E7E0EF',lineWidth:.15},headStyles:{font:'MTSText',fontStyle:'bold',fillColor:'#5D419D',textColor:'#FFFFFF'},alternateRowStyles:{fillColor:'#F7F4FA'},rowPageBreak:'avoid',showHead:'everyPage'});
  }
@@ -26,7 +28,7 @@ function printValue(value:ReportValue,format?:string){return value===null?'Не�
 export async function createShiftXlsx(stats:ShiftStatistics,context:ReportContext):Promise<Uint8Array>{
  const {default:ExcelJS}=await import('exceljs');const book=new ExcelJS.Workbook();
  const demo=context.personal?.source==='demo';
- book.creator='UnderCtrl';book.created=new Date(stats.generatedAt);book.title=demo?'ДЕМО — личная статистика':'Отчёт за период';
+ book.creator='UnderCtrl';book.created=new Date(stats.generatedAt);book.title=demo?'ДЕМО — личная статистика':context.personalAccount?'Личная статистика':'Отчёт за период';
  for(const section of shiftReportSections(stats,context)){
   const sheet=book.addWorksheet(section.title,{views:[{state:'frozen',ySplit:4}],pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0}});
   const width=section.columns.length;sheet.mergeCells(1,1,1,Math.max(width,2));sheet.getCell(1,1).value='UnderCtrl · '+section.title;
