@@ -31,6 +31,7 @@ export interface Snapshot {
 }
 export interface Analysis {
  sysId: string; revision: number; generatedAt: string; provider: 'rules' | 'llm'; summary: string;
+ summaryPending?: boolean;
  facts: { label: string; value: string }[];
  attention: string[]; candidates: { team: string; evidenceIds: string[]; reason: string }[];
  missing: string[];
@@ -160,7 +161,68 @@ export function describeEvent(event: ChangeEvent): string {
  if (event.fields.includes('deadline')) details.push('Обновлён дедлайн решения');
  return details.join(' · ') || `${event.fields.length} изменённых полей`;
 }
-export function analyze(item: Incident, items: Incident[], revision: number, now = Date.now()): Analysis {
+const briefOutcome: Record<State, string> = {
+ Assigned: 'Инцидент назначен, результат пока не подтверждён.',
+ WorkInProgress: 'Работа продолжается, результат пока не подтверждён.',
+ Research: 'Идёт исследование причин.',
+ Resolved: 'В карточке инцидент отмечен как решённый.',
+ Closed: 'Инцидент закрыт.',
+ Unknown: 'Текущий статус не определён.',
+};
+
+function briefExcerpt(value: unknown) {
+ if (typeof value !== 'string') return '';
+ const text = value.replace(/\s+/gu, ' ').trim();
+ const chars = Array.from(text);
+ if (chars.length <= 150) return text;
+ const head = chars.slice(0, 149).join('');
+ const boundary = head.lastIndexOf(' ');
+ return (boundary > 100 ? head.slice(0, boundary) : head).trimEnd() + '…';
+}
+
+export function incidentBrief(item: Incident, events: readonly ChangeEvent[] = []): string {
+ const problem = briefExcerpt(item.shortDescription) || briefExcerpt(item.description)
+  || briefExcerpt(item.header) || 'Описание проблемы пока отсутствует.';
+ const state = stateOf(item);
+ // The snapshot and incident history both list the newest events first.
+ const history = events.filter(event => event.sysId === item.sysId);
+ const solution = briefExcerpt(item.solution).replace(/\.$/u, '');
+ let action = solution ? `В поле решения указано «${solution}».` : '';
+ if (!action) {
+  for (const event of history) {
+   const previous = (briefExcerpt(event.current?.solution) || briefExcerpt(event.previous?.solution)).replace(/\.$/u, '');
+   if (previous) {
+    action = `Ранее в карточке указали «${previous}».`;
+    break;
+   }
+  }
+ }
+ let outcome = briefOutcome[state];
+ const transition = history.find(event => event.types.some(type => ['reopened', 'resolved', 'closed', 'research'].includes(type)));
+ if (action && (state === 'Assigned' || state === 'WorkInProgress') && transition?.types.includes('reopened')) {
+  outcome = 'Инцидент снова в работе, результат пока не подтверждён.';
+ }
+ if (!action) {
+  for (const event of history) {
+   if (event.types.includes('reopened')) {
+    action = 'Инцидент вернули в работу.';
+    break;
+   }
+   const team = briefExcerpt(event.current?.assignedGroupName);
+   if (team && (event.types.includes('team') || event.types.includes('assigned'))) {
+    action = `Инцидент передали команде «${team}».`;
+    break;
+   }
+  }
+ }
+ if (!action) {
+  const team = briefExcerpt(item.assignedGroupName);
+  action = team ? `Карточка назначена группе «${team}».` : 'Выполненные действия пока не описаны.';
+ }
+ return [/[.!?…]$/u.test(problem) ? problem : problem + '.', action, outcome].join(' ');
+}
+
+export function analyze(item: Incident, items: Incident[], revision: number, now = Date.now(), events: readonly ChangeEvent[] = []): Analysis {
  const attention: string[] = [], missing: string[] = [];
  if (belongs(item,'critical')) attention.push('Наивысший приоритет: необходимо оперативное внимание.');
  if (belongs(item,'coordinators')) attention.push('Назначен координаторам: необходимо определить команду для передачи.');
@@ -178,6 +240,6 @@ export function analyze(item: Incident, items: Incident[], revision: number, now
  const candidates = [...teams].sort((a,b)=>b[1].length-a[1].length).slice(0,3).map(([team,evidenceIds]) => ({ team,evidenceIds,reason:'Команда встречается в завершённых записях того же сервиса или сценария продукта. Совпадение не подтверждает зону ответственности.' }));
  if (!candidates.length) missing.push('В снимке недостаточно сопоставимых завершённых случаев для рекомендации команды.');
  return { sysId:item.sysId,revision,generatedAt:new Date(now).toISOString(),provider:'rules',
- summary:item.shortDescription || item.description?.slice(0,420) || item.header,
+ summary:incidentBrief(item,events),
  facts:[{label:'Продукт',value:item.productName},{label:'Сервис',value:item.service},{label:'Команда',value:item.assignedGroupName},{label:'Статус',value:STATES[stateOf(item)]}], attention,candidates,missing };
 }
