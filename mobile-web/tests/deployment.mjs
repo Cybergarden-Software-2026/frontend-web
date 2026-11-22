@@ -3,6 +3,7 @@ const base=process.argv[2];if(!base)throw Error('Pass the deployment origin');
 async function get(path){const response=await fetch(new URL(path,base));assert.equal(response.status,200,`${path}: HTTP ${response.status}`);return response}
 assert.match(await (await get('/')).text(),/\/assets\/.+\.js/);
 const mobile=await get('/mobile/'),html=await mobile.text();
+assert.match(mobile.headers.get('content-security-policy')||'',/img-src[^;]*blob:/,'Local camera photos must be decodable under the deployed CSP');
 assert.match(html,/underCtrl — важные инциденты/);
 const scripts=[...html.matchAll(/src="(\/mobile\/assets\/[^\"]+\.js)"/g)].map(m=>m[1]);assert.ok(scripts.length);
 for(const script of scripts){const response=await get(script);assert.match(response.headers.get('content-type')||'',/javascript/);assert.ok((await response.text()).length>1000)}
